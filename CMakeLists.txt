@@ -21,11 +21,8 @@ endif()
 add_executable(gl_test_project
 		source/main.cpp
         source/Mesh.cpp
-		source/Vec3.cpp
-		source/Vec2.cpp
 		source/Shader.cpp
 		source/stb_image.cpp
-		source/Vec3d.cpp
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
