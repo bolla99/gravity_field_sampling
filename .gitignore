@@ -1,0 +1,8 @@
+cmake-build-debug/
+build_xcode/
+default.metallib
+.DS_Store
+.idea/
+include/Foundation/
+include/Metal/
+include/QuartzCore/
