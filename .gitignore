@@ -2,6 +2,7 @@ cmake-build-debug/
 build_xcode/
 .DS_Store
 .idea/
+include/modules
 include/Foundation/
 include/Metal/
 include/QuartzCore/
