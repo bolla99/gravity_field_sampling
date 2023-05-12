@@ -22,7 +22,10 @@ add_executable(gl_test_project
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
-		source/GPUComputingMetal.cpp source/GPUComputingCL.cpp include/GPUComputing.hpp)
+		source/GPUComputingMetal.cpp
+		source/GPUComputingCL.cpp
+		include/GPUComputing.hpp
+		)
 
 if(WIN32)
 	message("so: windows ")
