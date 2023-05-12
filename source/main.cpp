@@ -75,7 +75,9 @@ int main(int argv, char** args) {
     // CREATE GL CONTEXT
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
 
+#ifdef WIN32
     glewInit();
+#endif
 
     std::cout << "gl version: " << glGetString(GL_VERSION);
 
