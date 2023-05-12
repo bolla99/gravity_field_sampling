@@ -2,10 +2,17 @@
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
+//#define SDL_MAIN_HANDLED
+
 #include <iostream>
 #include <sstream>
 #include <cmath>
 #include <SDL.h>
+
+#ifdef WIN32
+#include <GL/glew.h>
+#endif
+
 #include <imgui.h>
 #include <imfilebrowser.h>
 #include <imgui_impl_sdl2.h>
@@ -21,6 +28,7 @@
 #include <Mesh.hpp>
 #include <stb_image.h>
 #include <random>
+#include <string>
 
 #ifdef METAL_READY
 // METAL
@@ -36,7 +44,7 @@
 // LOAD FILE AS STRING FOR METAL SHADERS
 std::string loadMetalShader(const std::string& path);
 
-int main() {
+int main(int argv, char** args) {
 
     // SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -66,6 +74,8 @@ int main() {
             );
     // CREATE GL CONTEXT
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+
+    glewInit();
 
     std::cout << "gl version: " << glGetString(GL_VERSION);
 
@@ -461,7 +471,7 @@ int main() {
             glDeleteVertexArrays(1000, tVAOs);*/
 
             std::cout << "Selected filename" << meshBrowser.GetSelected().string() << std::endl;
-            mesh.loadFromObj(meshBrowser.GetSelected());
+            mesh.loadFromObj(meshBrowser.GetSelected().string());
             if(mesh.hasColor()) {
                 shader.use();
                 glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 1);
@@ -478,7 +488,7 @@ int main() {
 
         if(textureBrowser.HasSelected()) {
             int width, height, nrChannels;
-            unsigned char *data = stbi_load(textureBrowser.GetSelected().c_str(), &width, &height, &nrChannels, 3);
+            unsigned char *data = stbi_load(reinterpret_cast<const char *>(textureBrowser.GetSelected().c_str()), &width, &height, &nrChannels, 3);
             if(data) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
                 //glGenerateMipmap(GL_TEXTURE_2D);

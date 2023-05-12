@@ -11,6 +11,11 @@
 
 #include <iostream>
 #include <fstream>
+
+#ifdef WIN32
+#include <GL/glew.h>
+#endif
+
 #include <SDL_opengl.h>
 
 class Shader {

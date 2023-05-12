@@ -15,6 +15,12 @@
 
 #include <cstdio>
 #include <vector>
+#include <string>
+
+#ifdef WIN32
+#include <GL/glew.h>
+#endif
+
 #include <SDL_opengl.h>
 #include <glm/glm.hpp>
 
