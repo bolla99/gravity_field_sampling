@@ -22,10 +22,16 @@ add_executable(gl_test_project
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
-		source/GPUComputingMetal.cpp
-		source/GPUComputingCL.cpp
-		include/GPUComputing.hpp
 		)
+
+# SELECT GPU COMPUTING IMPLEMENTATION BASED ON OS
+if(WIN32)
+	target_sources(gl_test_project PRIVATE source/GPUComputingCL.cpp)
+endif()
+if(APPLE)
+	target_sources(gl_test_project PRIVATE source/GPUComputingMetal.cpp)
+endif()
+
 
 if(WIN32)
 	message("so: windows ")
