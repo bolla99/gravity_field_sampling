@@ -22,24 +22,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
 #include <Shader.hpp>
-#include <omp.h>
 #include <Mesh.hpp>
 #include <stb_image.h>
-#include <random>
 #include <string>
-
-#ifdef METAL_READY
-// METAL
-#define NS_PRIVATE_IMPLEMENTATION
-#define CA_PRIVATE_IMPLEMENTATION
-#define MTL_PRIVATE_IMPLEMENTATION
-#include <Foundation/Foundation.hpp>
-#include <Metal/Metal.hpp>
-#include <QuartzCore/QuartzCore.hpp>
-#include <simd/simd.h>
-#endif
+#include <GPUComputing.hpp>
 
 // LOAD FILE AS STRING FOR METAL SHADERS
 std::string loadMetalShader(const std::string& path);
@@ -326,71 +313,18 @@ int main(int argv, char** args) {
             }
 #ifdef METAL_READY
             if(ImGui::Button("GPU COMPUTING")) {
-                auto masses_as_float = (float *)&masses.front();
+                auto masses_as_float = (float *) &masses.front();
                 std::vector<glm::vec3> space = mesh.getDiscreteSpace(gravity_resolution);
-                for(int i = 0; i < 100; i++) {
+                for (int i = 0; i < 100; i++) {
                     std::cout << "{" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
                 }
-                auto space_as_float = (float *)(glm::value_ptr(space.front()));
-                gravity_output.reserve((int)pow(gravity_resolution, 3));
-                gravity_output_heap = (float *)malloc(sizeof(glm::vec3) * (int)space.size());
-
-                UInt64 start = SDL_GetTicks64();
-
-                std::string metal_shader = loadMetalShader("../shaders/add.metal");
-                const char* metal_shader_c = metal_shader.c_str();
-                auto source = NS::String::string(metal_shader_c, NS::UTF8StringEncoding);
-
-                NS::Error* error;
-                MTL::Device *device = MTL::CreateSystemDefaultDevice();
-                MTL::Library *library = device->newLibrary(source, nullptr, &error);
-
-                auto str = NS::String::string("add_arrays", NS::ASCIIStringEncoding);
-                MTL::Function *function = library->newFunction(str);
-                if(function == nullptr) return 1;
-
-                NS::Error* e;
-                MTL::ComputePipelineState* pso = device->newComputePipelineState(function, &e);
-                function->release();
-                MTL::CommandQueue* commandQueue = device->newCommandQueue();
-
-                masses_size = (int)(sizeof(mass) * masses.size());
-                std::cout << "MASSES SIZE " << masses_size;
-
-                MTL::Buffer* space_buffer = device->newBuffer(space_as_float, (int)space.size() * sizeof(glm::vec3), MTL::ResourceStorageModeShared);
-                MTL::Buffer* masses_buffer = device->newBuffer(masses_as_float, masses.size() * sizeof(mass), MTL::ResourceStorageModeShared);
-                MTL::Buffer* gravity_buffer = device->newBuffer(gravity_output_heap, (int)space.size() * sizeof(glm::vec3), MTL::ResourceStorageModeShared);
-                MTL::Buffer* masses_size_buffer = device->newBuffer(&masses_size, sizeof(int), MTL::ResourceStorageModeShared);
-
-                MTL::CommandBuffer* commandBuffer = commandQueue->commandBuffer();
-                MTL::ComputeCommandEncoder* computeCommandEncoder = commandBuffer->computeCommandEncoder();
-
-                computeCommandEncoder->setComputePipelineState(pso);
-                computeCommandEncoder->setBuffer(space_buffer, 0, 0);
-                computeCommandEncoder->setBuffer(masses_buffer, 0, 1);
-                computeCommandEncoder->setBuffer(gravity_buffer, 0, 2);
-                computeCommandEncoder->setBuffer(masses_size_buffer, 0, 3);
-
-                auto size = (int)space.size();
-                MTL::Size gridsize = MTL::Size::Make(size, 1, 1);
-                NS::UInteger threadGroupSize = pso->maxTotalThreadsPerThreadgroup();
-                if(threadGroupSize > size) {
-                    threadGroupSize = size;
-                }
-                MTL::Size threadsize = MTL::Size::Make(threadGroupSize, 1, 1);
-                computeCommandEncoder->dispatchThreads(gridsize, threadsize);
-
-                computeCommandEncoder->endEncoding();
-                commandBuffer->commit();
-                commandBuffer->waitUntilCompleted();
-
-                std::cout << "time elapsed: " << ((float)SDL_GetTicks64() - (float)start)/ 1000.f << std::endl;
-
-                for(int i = 0; i < 1000; i+=3) {
-                    std::cout << ((float *)gravity_buffer->contents())[i] << " "
-                    << ((float *)gravity_buffer->contents())[i + 1] << " "
-                    << ((float *)gravity_buffer->contents())[i + 2] << std::endl;
-                }
+                auto space_as_float = (float *) (glm::value_ptr(space.front()));
+                float *output_gravity = GPUComputing::getGravityFromPointMassesAndDiscreteSpace(
+                        masses_as_float,
+                        masses.size() * sizeof(mass),
+                        space_as_float,
+                        space.size() * sizeof(glm::vec3)
+                        );
             }
 #endif
 
