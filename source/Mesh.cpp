@@ -464,10 +464,25 @@ glm::vec3 Mesh::getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& 
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 tetrahedrons_vertex};
-        float mass = tetrahedronVolume(t) * 1000;
+        float mass = tetrahedronVolume(t);
         glm::vec3 barycentre = tetrahedronBarycentre(t);
         float distance = glm::length(p - barycentre);
         gravity = gravity - ((p - barycentre)*mass) / (float)pow(distance, 3);
+    }
+    return gravity;
+}
+
+glm::vec3 Mesh::getGravityFromTetrahedronsCorrected(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const {
+    glm::vec3 gravity = {0.f, 0.f, 0.f};
+    for(auto & face : faces) {
+        tetrahedron t = {
+                vertices[face.x - 1],
+                vertices[face.y - 1],
+                vertices[face.z - 1],
+                tetrahedrons_vertex};
+        float mass = tetrahedronVolume(t);
+        glm::vec3 barycentre = tetrahedronBarycentre(t);
+        gravity = gravity + ((barycentre - p)*mass) / (float)pow(glm::length(barycentre - p), 3);
     }
     return gravity;
 }
