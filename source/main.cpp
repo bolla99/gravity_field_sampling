@@ -140,8 +140,12 @@ int main(int argv, char** args) {
     float rotation[3] = {0.0f, 0.0f, 0.0f};
 
     float tetrahedron_vertex[3] = {0.f, 0.f, 0.f};
+
     float potential_point[3] = {0.f, 0.f, 0.f};
     glm::vec3 gravity = {0.f, 0.f, 0.f};
+    glm::vec3 gravity_with_tetrahedrons = {0.f, 0.f, 0.f};
+    glm::vec3 gravity_with_tetrahedrons_corrected = {0.f, 0.f, 0.f};
+
     float volume = 0.f;
 
     // tetrahedron data
@@ -158,10 +162,6 @@ int main(int argv, char** args) {
     int gravity_resolution = 0;
     std::vector<tube> tubes = {};
     std::vector<mass> masses = {};
-    std::vector<glm::vec3> gravity_output;
-    auto gravity_output_p = (float *)&gravity_output.front();
-    int masses_size = 0;
-    float *gravity_output_heap;
 
     unsigned int rayVBO, rayVAO;
     glGenBuffers(1, &rayVBO);
@@ -206,10 +206,10 @@ int main(int argv, char** args) {
         glm::mat4 modelTranslation = glm::translate(glm::mat4(1.f), glm::vec3{position[0], position[1], position[2]});
         glm::mat4 modelRotationX = glm::rotate(glm::mat4(1.f), rotation[0], glm::vec3{1.f, 0.f, 0.f});
         glm::mat4 modelRotationY = glm::rotate(glm::mat4(1.f), rotation[1], glm::vec3{0.f, 1.f, 0.f});
-        glm::mat4 modelRotationZ = glm::rotate(glm::mat4(1.f), rotation[2], glm::vec3{-1.f, 0.f, 0.f});
+        glm::mat4 modelRotationZ = glm::rotate(glm::mat4(1.f), rotation[2], glm::vec3{0.f, 0.f, 1.f});
         glm::mat4 modelScale = glm::scale(glm::mat4(1.f), glm::vec3{scale});
         glm::mat4 modelMatrix = modelScale * modelTranslation * modelRotationZ * modelRotationY * modelRotationX;
-
+        
         // GLM::LOOKAT METHOD
         /* GLM::LOOK AT METHOD
         glm::vec4 camTransform = glm::vec4(cam_position.x, cam_position.y, cam_position.z, 1.0f);
@@ -295,23 +295,27 @@ int main(int argv, char** args) {
             }
         }
         if(mesh.isLoaded()) {
-            ImGui::SliderFloat3("tetrahedron vertex", tetrahedron_vertex,-1000, 1000);
+            ImGui::InputFloat3("tetrahedron vertex", tetrahedron_vertex);
             ImGui::Text("Volume %f", volume);
 
             ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 1000);
             ImGui::InputFloat3("potential point", potential_point);
             if(ImGui::Button("calculate gravity rt")) {
-                gravity = mesh.getGravityRT(gravity_resolution, {potential_point[0], potential_point[1], potential_point[2]});
+                gravity = mesh.getGravityRT(gravity_resolution, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("set up tubes")) { tubes = mesh.getTubes(gravity_resolution); }
             if(ImGui::Button("calculate gravity with tubes")) {
-                gravity = mesh.getGravityFromTubes(gravity_resolution, tubes, {potential_point[0], potential_point[1], potential_point[2]});
+                gravity = mesh.getGravityFromTubes(gravity_resolution, tubes, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("set up masses")) { masses = mesh.getMasses(gravity_resolution); }
             if(ImGui::Button("calculate gravity with masses")) {
-                gravity = Mesh::getGravityFromMasses(masses, 10, {potential_point[0], potential_point[1], potential_point[2]});
+                gravity = Mesh::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
             }
-#ifdef METAL_READY
+            //if(ImGui::Button("calculate gravity with tetrahedrons")) {
+                gravity_with_tetrahedrons = mesh.getGravityFromTetrahedrons(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) / 5.f;
+            //}
+
+            gravity_with_tetrahedrons_corrected = mesh.getGravityFromTetrahedronsCorrected(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) / 5.f;
             if(ImGui::Button("GPU COMPUTING")) {
                 auto masses_as_float = (float *) &masses.front();
                 std::vector<glm::vec3> space = mesh.getDiscreteSpace(gravity_resolution);
@@ -326,11 +330,15 @@ int main(int argv, char** args) {
                         space.size() * sizeof(glm::vec3)
                         );
             }
-#endif
 
             //gravity = mesh.getGravity(gravity_resolution, {potential_point[0], potential_point[1], potential_point[2]});
             ImGui::Text("gravity: %f %f %f", gravity.x, gravity.y, gravity.z);
             ImGui::Text("gravity force: %f", glm::length(gravity));
+
+            ImGui::Text("gravity with tetrahedrons: %f %f %f", gravity_with_tetrahedrons.x, gravity_with_tetrahedrons.y, gravity_with_tetrahedrons.z);
+            ImGui::Text("gravity force with tetrahedrons: %f", glm::length(gravity_with_tetrahedrons));
+            ImGui::Text("gravity with tetrahedrons corrected: %f %f %f", gravity_with_tetrahedrons_corrected.x, gravity_with_tetrahedrons_corrected.y, gravity_with_tetrahedrons_corrected.z);
+            ImGui::Text("gravity force with tetrahedrons corrected: %f", glm::length(gravity_with_tetrahedrons_corrected));
 
             ImGui::InputFloat3("ray origin", origin);
             ImGui::InputFloat3("ray direction", direction);
@@ -346,6 +354,7 @@ int main(int argv, char** args) {
                 glm::vec3{potential_point[0], potential_point[1], potential_point[2]},
                      glm::vec3{tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});*/
         volume = mesh.volume({tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
+
         if(ImGui::Button("OPEN MESH")) meshBrowser.Open();
         if(ImGui::Button("OPEN TEXTURE")) textureBrowser.Open();
         if(ImGui::Button("SET COLORMODE VERTEX COLOR")) {
