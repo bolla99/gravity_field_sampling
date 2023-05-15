@@ -5,6 +5,16 @@
 //  Created by Giovanni Bollati on 24/03/23.
 //
 
+// ********************************************************** //
+// ********************************************************** //
+// ********************************************************** //
+// ********* WARNING WARNING WARNING WARNING WARNING ******** //
+// ***** APP CRASHED WHILE LOADING MESH WITHOUT UV MAPPING ** //
+// ********************************************************** //
+// ********************************************************** //
+// ********************************************************** //
+
+
 #ifndef Mesh_hpp
 #define Mesh_hpp
 
@@ -105,6 +115,7 @@ public:
 
     // for each face -> compute tetrahedron signed volume; find barycentre and add force to total
     [[nodiscard]] glm::vec3 getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
+    [[nodiscard]] glm::vec3 getGravityFromTetrahedronsCorrected(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
     [[nodiscard]] float volume(const glm::vec3& t) const;
 
     // ABSTRACTION FUNCTION
