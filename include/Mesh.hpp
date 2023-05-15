@@ -104,7 +104,7 @@ public:
     [[nodiscard]] const std::vector<int>& getElements() const;
 
     // for each face -> compute tetrahedron signed volume; find barycentre and add force to total
-    [[nodiscard]] glm::vec3 gravity(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
+    [[nodiscard]] glm::vec3 getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
     [[nodiscard]] float volume(const glm::vec3& t) const;
 
     // ABSTRACTION FUNCTION

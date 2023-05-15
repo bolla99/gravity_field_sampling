@@ -456,7 +456,7 @@ glm::vec3 Mesh::tetrahedronBarycentre(tetrahedron t) {
     + (t.v * (1.f/4.f));
 }
 
-glm::vec3 Mesh::gravity(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const {
+glm::vec3 Mesh::getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const {
     glm::vec3 gravity = {0.f, 0.f, 0.f};
     for(auto & face : faces) {
         tetrahedron t = {
