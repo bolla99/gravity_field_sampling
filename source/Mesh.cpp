@@ -530,7 +530,7 @@ glm::vec3 Mesh::getGravityRT(int resolution, glm::vec3 point) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = customRayMeshIntersections(r);
+            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -690,7 +690,7 @@ std::vector<tube> Mesh::getTubes(int resolution) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = customRayMeshIntersections(r);
+            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -741,7 +741,7 @@ std::vector<mass> Mesh::getMasses(int resolution) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = customRayMeshIntersections(r);
+            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -793,7 +793,7 @@ std::vector<glm::vec3> Mesh::rayMeshIntersections(ray r) {
     }
     return intersections;
 }
-std::vector<glm::vec3> Mesh::customRayMeshIntersections(ray r) {
+std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) {
     // parameter: intersection = origin + direction * parameter
     std::vector<glm::vec3> intersections = {};
     std::vector<float> parameters = {};
@@ -814,20 +814,6 @@ std::vector<glm::vec3> Mesh::customRayMeshIntersections(ray r) {
         if(t0.y < t0.x + Do && t1.y < t1.x + Do && t2.y < t2.x + Do) continue;
         if(t0.y > t0.x + Do && t1.y > t1.x + Do && t2.y > t2.x + Do) continue;
 
-        /*
-        float area = 0.5f * (-t1.y*t2.x + t0.y*(-t1.x + t2.x) + t0.x*(t1.y - t2.y) + t1.x*t2.y);
-        if(std::abs(area) < std::numeric_limits<float>::epsilon()) continue;
-        float s = -(1.f / area*2.f)*(t0.y*t2.x - t0.x*t2.y + (t2.y - t0.y)*r.origin.x + (t0.x - t2.x)*r.origin.y);
-        float t = -(1.f / area*2.f)*(t0.x*t1.y - t0.y*t1.x + (t0.y - t1.y)*r.origin.x + (t1.x - t0.x)*r.origin.y);
-        if(s > 0 || t > 0) continue;*/
-
-        /*
-        float d = glm::determinant(glm::mat3(t0.x, t0.y, 0, t1.x, t1.y, 0, t2.x, t2.y, 0));
-        float s = glm::determinant(glm::mat3(r.origin.x, r.origin.y, 0, t1.x, t1.y, 0, t2.x, t2.y, 0)) / d;
-        if(s < 0) continue;
-        float t = glm::determinant(glm::mat3(t0.x, t0.y, 0, r.origin.x, r.origin.y, 0, t2.x, t2.y, 0)) / d;
-        if(t < 0 || s + t > 1) continue;
-        */
         if(rayTriangleIntersection(r, t0, t1, t2, &parameter)) {
             parameters.push_back(parameter);
         }
@@ -871,22 +857,6 @@ bool Mesh::rayTriangleIntersection(ray r, glm::vec3 t1, glm::vec3 t2, glm::vec3 
     if (raydotnorm > -EPSILON && raydotnorm < EPSILON) {
         return false;    // This ray is parallel to this triangle.
     }
-
-    *parameter = t;
-    return true;
-}
-
-bool Mesh::customRayTriangleIntersection(ray r, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
-    const float EPSILON = 0.0000001;
-    glm::vec3 e1 = t2 - t1;
-    glm::vec3 e2 = t3 - t1;
-
-    glm::vec3 o = glm::vec3(r.origin.x - t1.x, r.origin.y - t1.y, r.origin.z - t1.z);
-    float d = glm::determinant(glm::mat3(-r.dir.x, -r.dir.y, -r.dir.z,
-                                                       e1.x, e1.y, e1.z,
-                                                       e2.x, e2.y, e2.z));
-    float t = glm::determinant(glm::mat3(o.x, o.y, o.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z)) / d;
-    if(t < EPSILON) return false;
 
     *parameter = t;
     return true;
