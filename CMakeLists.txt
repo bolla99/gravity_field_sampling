@@ -22,7 +22,7 @@ add_executable(gl_test_project
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
-		)
+		source/Util.cpp)
 
 # SELECT GPU COMPUTING IMPLEMENTATION BASED ON OS
 if(WIN32)
