@@ -4,7 +4,7 @@
 
 #include <Util.hpp>
 
-glm::quat Util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
+glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors
     glm::vec3 start_n = glm::normalize(start);
     glm::vec3 dest_n = glm::normalize(dest);
@@ -29,6 +29,9 @@ glm::quat Util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& 
     rotationAxis = cross(start, dest);
 
     float s = sqrt( (1+cosTheta)*2 );
+
+    // formula justified by rotationAxis length being sin(theta)
+    // q[w, tx, ty, tz], w = cos(theta/2), t = sin(theta/2)
     float invs = 1 / s;
 
     return {
@@ -39,7 +42,7 @@ glm::quat Util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& 
     };
 }
 
-glm::vec3 Util::barycentric_coords(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& p) {
+glm::vec3 util::barycentric_coords(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& p) {
     glm::vec3 v0 = b - a, v1 = c - a, v2 = p - a;
     float d00 = glm::dot(v0, v0);
     float d01 = glm::dot(v0, v1);
