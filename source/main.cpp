@@ -1,36 +1,67 @@
+  // ******************************************************** //
+ // ********************* PRE PROCESSOR ******************** //
+// ******************************************************** //
+
+/* AUTHOR: GIOVANNI BOLLATI
+ * UNIMI THESIS PROJECT
+ */
+
+/* definition needed to activate gl functions
+ * declared in sdl_opengl_glext.h,
+ * which is included by sdl_opengl.h */
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
-//#define SDL_MAIN_HANDLED
+// user defined types
+#include <Mesh.hpp>
+#include <Util.hpp>
+#include <Shader.hpp>
+#include <GPUComputing.hpp>
 
+// stdlib
 #include <iostream>
 #include <sstream>
 #include <cmath>
+#include <string>
+
+// sdl
 #include <SDL.h>
 
 #ifdef WIN32
 #include <GL/glew.h>
 #endif
 
+// imgui
 #include <imgui.h>
 #include <imfilebrowser.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
+
+// opengl
 #include <SDL_opengl.h>
+
+// glm
 #include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
-#include <Shader.hpp>
-#include <Mesh.hpp>
+
+// image loading
 #include <stb_image.h>
-#include <string>
-#include <GPUComputing.hpp>
+
+  // ******************************************************** //
+ // ******************** GLOBAL FUNCTIONS ****************** //
+// ******************************************************** //
 
 // LOAD FILE AS STRING FOR METAL SHADERS
 std::string loadMetalShader(const std::string& path);
 
+
+  // ******************************************************** //
+ // ************************** MAIN ************************ //
+// ******************************************************** //
 int main(int argv, char** args) {
 
     // SDL INIT
@@ -40,7 +71,10 @@ int main(int argv, char** args) {
     }
 
     // SET VERSION ATTRIBUTES
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
+
+    // Always required on Mac
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
@@ -62,11 +96,13 @@ int main(int argv, char** args) {
     // CREATE GL CONTEXT
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
 
+    // IF ON WINDOWS INIT GLEW
 #ifdef WIN32
     glewInit();
 #endif
 
-    std::cout << "gl version: " << glGetString(GL_VERSION);
+    // LOG GL VERSION
+    SDL_Log("GL VERSION: %s", glGetString(GL_VERSION));
 
     // SET GL CONTEXT
     SDL_GL_MakeCurrent(window, gl_context);
@@ -78,91 +114,108 @@ int main(int argv, char** args) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-
     ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init("#version 410");
 
+    // ENABLE DEPTH TEST AND SET DEPTH FUNCTION
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    glDepthFunc(GL_LESS); // GL_LESS: minor z passes
 
-    // SHADER LOADING AND SETUP
+    // SHADER LOADING
     Shader shader = Shader("../shaders/vs.glsl", "../shaders/fs.glsl");
     Shader tetra_shader = Shader("../shaders/vs_tetra.glsl", "../shaders/fs_tetra.glsl");
 
 
-    // IMGUI FIlE BROWSER
+    // CREATE MESH FILE BROWSER
     ImGui::FileBrowser meshBrowser;
     meshBrowser.SetTitle("mesh .obj browser");
     meshBrowser.SetTypeFilters({".obj"});
-
+    // CREATE TEXTURE FILE BROWSER
     ImGui::FileBrowser textureBrowser;
     textureBrowser.SetTitle("texture browser");
     textureBrowser.SetTypeFilters({".png", ".jpg", ".jpeg"});
 
-    // MESH
+    // CREATE MESH OBJECTS
     Mesh mesh = Mesh();
+    Mesh arrow = Mesh();
 
-    // TEXTURE -> discorso texture da approfondire
+    // CREATE TEXTURE AND BIND
     unsigned int texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
+
+    // SET WRAPPING MODE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // MIPMAP (CURRENTLY NOT WORKING)
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+    // SET FILTER MODE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // SET DEFAULT TEXTURE
+    // SET DEFAULT TEXTURE DATA
     auto* data = new unsigned char[3 * sizeof(char)];
-    data[0] = 127; data[1] = 127; data[2] = 127;
+    data[0] = 127; data[1] = 127; data[2] = 127; // GRAY COLOR
+    // set data for binded texture
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
     delete[](data);
 
-    float f[3] = {0, 0, 0};
-    std::string isInside;
-
+    // CAMERA PARAMETERS
     glm::vec3 cam_position = glm::vec3{0.f, 0.f, 10.f};
     float h_cam_angle = 0.f;
     float v_cam_angle = 0.f;
 
+    // COLOR PARAMETERS
     float clear_color[3] = {0.5, 0.5, 0.5};
     float default_texture_color[3] = {0.5, 0.5, 0.5};
+
+    // LIGHT UNIFORM PARAMETERS
     float ambient_color[3] = {0.5, 0.5, 0.5};
+    float ambient_intensity = 0.5;
     float diffuse_color[3] = {0.5, 0.5, 0.5};
     float diffuse_position[3] = {10.0, 0.0, 0.0};
-    float ambient_intensity = 0.5;
-    float specularStrenght = 0.5;
+    float specular_strength = 0.5;
     int shininess = 32;
 
-    // model matrix
+    // MODEL MATRIX PARAMETERS
     float scale = 1.0f;
     float position[3] = {0.0f, 0.0f, 0.0f};
     float rotation[3] = {0.0f, 0.0f, 0.0f};
 
-    float tetrahedron_vertex[3] = {0.f, 0.f, 0.f};
+    // GRAVITY VALUES
 
+    // tetrahedron vertex for gravity and volume calculation; chosen arbitrarily
+    float tetrahedron_vertex[3] = {0.f, 0.f, 0.f};
+    // scale value for gravity calculated with tetrahedrons method
+    float tetrahedrons_gravity_scale = 60.f;
+
+    // point where gravity is calculated
     float potential_point[3] = {0.f, 0.f, 0.f};
+
+    // output holder for gravity calculated by alternative method (tubes, masses, RT, GPU)
     glm::vec3 gravity = {0.f, 0.f, 0.f};
+
+    // output holders for gravity with tetrahedrons metho
     glm::vec3 gravity_with_tetrahedrons = {0.f, 0.f, 0.f};
     glm::vec3 gravity_with_tetrahedrons_corrected = {0.f, 0.f, 0.f};
 
-    float volume = 0.f;
-
-    // tetrahedron data
-    /*
-    unsigned int tVBOs[1000];
-    unsigned int tVAOs[1000];
-    unsigned int tEBOs[1000];
-     */
-
-    // RAY
-    float origin[3] = {0, 0, 0};
-    float direction[3] = {0, 0, 0};
-
+    // parameters used where function parameter "resolution" is required.
     int gravity_resolution = 0;
+
+    // tubes and masses containers
     std::vector<tube> tubes = {};
     std::vector<mass> masses = {};
 
+    // mesh volume
+    float volume = 0.f;
+
+    // DEBUG RAY; used for ray - mesh intersection
+    float origin[3] = {0, 0, 0};
+    float direction[3] = {0, 0, 0};
+
+    // SET UP RAY GL
     unsigned int rayVBO, rayVAO;
     glGenBuffers(1, &rayVBO);
     glGenVertexArrays(1, &rayVAO);
@@ -174,13 +227,12 @@ int main(int argv, char** args) {
 
       // ******************************************************** //
      // ************************ MAIN LOOP ********************* //
-    // ***************************************************O**** //
+    // ******************************************************** //
     bool quit = false;
     while(!quit) {
 
-
           // ******************************************************** //
-         // ************************** UPDATE ********************** //
+         // *********************** UPDATE ************************* //
         // ******************************************************** //
 
         // PROJECTION MATRIX
@@ -199,28 +251,26 @@ int main(int argv, char** args) {
 
         glm::vec4 camPosition4 = camRotationX * camRotationY * camTranslation * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         glm::vec3 cameraPosition3 = glm::vec3{camPosition4.x, camPosition4.y, camPosition4.z};
+
+        // UPDATE SHADER CAMERA POSITION VALUE FOR SPECULAR LIGHT
         shader.use();
         glUniform3fv(glGetUniformLocation(shader.programID, "viewerPosition"), 1, glm::value_ptr(cameraPosition3));
 
         // MODEL MATRIX
-        glm::mat4 modelTranslation = glm::translate(glm::mat4(1.f), glm::vec3{position[0], position[1], position[2]});
-        glm::mat4 modelRotationX = glm::rotate(glm::mat4(1.f), rotation[0], glm::vec3{1.f, 0.f, 0.f});
-        glm::mat4 modelRotationY = glm::rotate(glm::mat4(1.f), rotation[1], glm::vec3{0.f, 1.f, 0.f});
-        glm::mat4 modelRotationZ = glm::rotate(glm::mat4(1.f), rotation[2], glm::vec3{0.f, 0.f, 1.f});
+        glm::mat4 modelTranslation = glm::translate(glm::mat4(1.f), {position[0], position[1], position[2]});
+        glm::mat4 modelRotationX = glm::rotate(glm::mat4(1.f), rotation[0], {1.f, 0.f, 0.f});
+        glm::mat4 modelRotationY = glm::rotate(glm::mat4(1.f), rotation[1], {0.f, 1.f, 0.f});
+        glm::mat4 modelRotationZ = glm::rotate(glm::mat4(1.f), rotation[2], {0.f, 0.f, 1.f});
         glm::mat4 modelScale = glm::scale(glm::mat4(1.f), glm::vec3{scale});
         glm::mat4 modelMatrix = modelScale * modelTranslation * modelRotationZ * modelRotationY * modelRotationX;
-        
-        // GLM::LOOKAT METHOD
-        /* GLM::LOOK AT METHOD
-        glm::vec4 camTransform = glm::vec4(cam_position.x, cam_position.y, cam_position.z, 1.0f);
-        glm::vec3 v_up = glm::vec3{0.f, 1.f, 0.f};
-        camTransform = camRotationY * camRotationX * camTransform;
-        auto viewMatrix = glm::lookAt(
-                glm::vec3{camTransform.x, camTransform.y, camTransform.z},
-                glm::vec3{0.f, 0.f, 0.f},
-                v_up
-                );
-        */
+
+        glm::mat4 arrowModelMatrix = glm::translate(glm::mat4(1.f), glm::make_vec3(potential_point))
+                * glm::toMat4(util::rotationBetweenVectors({0.f, 0.f, -1.f}, glm::normalize(gravity)))
+                * glm::scale(glm::mat4(1.f), {glm::length(gravity) / 100, glm::length(gravity) / 100, glm::length(gravity) / 100});
+
+        // UPDATE SHADERS
+
+        // matrices parameters
         shader.use();
         glUniformMatrix4fv(glGetUniformLocation(shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
         glUniformMatrix4fv(glGetUniformLocation(shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(viewMatrix));
@@ -229,17 +279,49 @@ int main(int argv, char** args) {
         glUniformMatrix4fv(glGetUniformLocation(tetra_shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
         glUniformMatrix4fv(glGetUniformLocation(tetra_shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(viewMatrix));
 
+        // light parameters
+        shader.use();
+        glUniform1f(glGetUniformLocation(shader.programID, "ambientLightIntensity"), ambient_intensity);
+        glUniform3fv(glGetUniformLocation(shader.programID, "ambientLightColor"), 1, ambient_color);
+        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightColor"), 1, diffuse_color);
+        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightPosition"), 1, diffuse_position);
+        glUniform1f(glGetUniformLocation(shader.programID, "specularStrenght"), specular_strength);
+        glUniform1i(glGetUniformLocation(shader.programID, "shininess"), shininess);
+
+
+          // ******************************************************* //
+         // ************** UPDATE.(GRAVITY PROCESSING) ************ //
+        // ******************************************************* //
+
+        /*
+         * Gravity processing is done real time with tetrahedrons method;
+         * volume processing is done real time
+         * other gravity processing methods are executed by gui interactions
+         */
+
+        // UPDATE MESH VOLUME
+        volume = mesh.volume({tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
+
+        // UPDATE GRAVITY WITH TETRAHEDRONS (REAL TIME - done every frame)
+        gravity_with_tetrahedrons = mesh.getGravityFromTetrahedrons(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+        gravity_with_tetrahedrons_corrected = mesh.getGravityFromTetrahedronsCorrected(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+
+
+
           // ******************************************************* //
          // ************************** INPUT ********************** //
         // ******************************************************* //
         SDL_Event event;
 
         while (SDL_PollEvent(&event)) {
+            // IF USING GUI SKIP INPUT PROCESSING
             if(io.WantCaptureMouse || io.WantCaptureKeyboard) {
                 ImGui_ImplSDL2_ProcessEvent(&event);
                 continue;
             }
+            // QUIT EVENT
             if((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) || event.type == SDL_QUIT) quit = true;
+
             // MOUSE CAMERA MOVEMENT
             if(event.type == SDL_MOUSEMOTION) {
                 if(event.motion.state & SDL_BUTTON_LMASK) {
@@ -276,29 +358,37 @@ int main(int argv, char** args) {
          // ******************************************************** //
          // ************************** IMGUI ********************** //
         // ******************************************************* //
+
+        // NEW FRAME
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
+        // MAIN IMGUI TAB (MESH LOADING AND GRAVITY PROCESSING
         ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::Begin("General");
+        ImGui::Begin("IO");
+
+        // WIREFRAME - FILL CHOICE
         if(ImGui::Button("WIREFRAME")) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         if(ImGui::Button("FILL")) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        ImGui::Text("Framerate: %f", io.Framerate);
-
+        // MESH LOADING OPERATIONS
         ImGui::Spacing();ImGui::Spacing();ImGui::Spacing();
+        if(ImGui::Button("OPEN MESH")) meshBrowser.Open();
         if(!mesh.getVertices().empty()) {
             ImGui::Text("Mesh loaded");
             if(ImGui::Button("Save Mesh")) {
                 mesh.writeOnDiskAsObj("saved_mesh.obj");
             }
         }
+
+        // GRAVITY CALCULATION OPERATIONS
         if(mesh.isLoaded()) {
+            ImGui::Begin("GRAVITY PROCESSING");
             ImGui::InputFloat3("tetrahedron vertex", tetrahedron_vertex);
             ImGui::Text("Volume %f", volume);
 
-            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 1000);
+            ImGui::InputInt("ray gravity resolution", &gravity_resolution);
             ImGui::InputFloat3("potential point", potential_point);
             if(ImGui::Button("calculate gravity rt")) {
                 gravity = mesh.getGravityRT(gravity_resolution, glm::make_vec3(potential_point));
@@ -311,11 +401,9 @@ int main(int argv, char** args) {
             if(ImGui::Button("calculate gravity with masses")) {
                 gravity = Mesh::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
             }
-            //if(ImGui::Button("calculate gravity with tetrahedrons")) {
-                gravity_with_tetrahedrons = mesh.getGravityFromTetrahedrons(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) / 5.f;
-            //}
+            ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);
 
-            gravity_with_tetrahedrons_corrected = mesh.getGravityFromTetrahedronsCorrected(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) / 5.f;
+            // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
                 auto masses_as_float = (float *) &masses.front();
                 std::vector<glm::vec3> space = mesh.getDiscreteSpace(gravity_resolution);
@@ -331,7 +419,7 @@ int main(int argv, char** args) {
                         );
             }
 
-            //gravity = mesh.getGravity(gravity_resolution, {potential_point[0], potential_point[1], potential_point[2]});
+            // GRAVITY OUTPUTS
             ImGui::Text("gravity: %f %f %f", gravity.x, gravity.y, gravity.z);
             ImGui::Text("gravity force: %f", glm::length(gravity));
 
@@ -340,22 +428,22 @@ int main(int argv, char** args) {
             ImGui::Text("gravity with tetrahedrons corrected: %f %f %f", gravity_with_tetrahedrons_corrected.x, gravity_with_tetrahedrons_corrected.y, gravity_with_tetrahedrons_corrected.z);
             ImGui::Text("gravity force with tetrahedrons corrected: %f", glm::length(gravity_with_tetrahedrons_corrected));
 
+            // RAY PARAMETERS INPUT
             ImGui::InputFloat3("ray origin", origin);
             ImGui::InputFloat3("ray direction", direction);
-            std::vector<glm::vec3> intersections = {};/*mesh.rayMeshIntersections({
-                                              {origin[0], origin[1], origin[2]},
-                                              {direction[0], direction[1], direction[2]}});*/
+            std::vector<glm::vec3> intersections = {};
+
+            // RAY MESH INTERSECTION OUTPUT
             ImGui::Text("number of intersection: %d", (int)intersections.size());
             for(auto & intersection : intersections) {
                 ImGui::Text("intersection: ( %f, %f, %f )", intersection.x, intersection.y, intersection.z);
             }
+            ImGui::End();
         }
-        /*gravity = mesh.gravity(
-                glm::vec3{potential_point[0], potential_point[1], potential_point[2]},
-                     glm::vec3{tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});*/
-        volume = mesh.volume({tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
+        ImGui::End();
 
-        if(ImGui::Button("OPEN MESH")) meshBrowser.Open();
+        // IMGUI TAB: TEXTURE OPERATIONS
+        ImGui::Begin("Texture");
         if(ImGui::Button("OPEN TEXTURE")) textureBrowser.Open();
         if(ImGui::Button("SET COLORMODE VERTEX COLOR")) {
             shader.use();
@@ -374,49 +462,48 @@ int main(int argv, char** args) {
             delete[](data);
         }
 
-        // WINDOW SIZE
-        ImGui::Text("DisplaySize for imgui: %f/%f", io.DisplaySize.x, io.DisplaySize.y);
-
+        // COLOR SETTINGS
         ImGui::ColorEdit3("CLEAR COLOR", clear_color);
         ImGui::ColorEdit3("DEFAULT TEXTURE COLOR", default_texture_color);
         ImGui::End();
 
+        // IMGUI TAB FOR GENERIC INFO
+        ImGui::Begin("GENERIC INFO");
+        ImGui::Text("Framerate: %f", io.Framerate); // FRAMERATE
+        ImGui::Text("DisplaySize for imgui: %f/%f", io.DisplaySize.x, io.DisplaySize.y); // DISPLAY SIZE
+        ImGui::End();
+
+        // IMGUI TAB FOR MODEL TRANSFORM
         ImGui::Begin("Model Transform");
         ImGui::SliderFloat("model scale", &scale, 0.1f, 5.0f);
         ImGui::SliderFloat3("model position", position, -20.0, 20.0);
         ImGui::SliderFloat3("model rotation", rotation, 0.0f, 2.0f * M_PI);
         ImGui::End();
 
+        // IMGUI TAB FOR LIGHT SETTINGS
         ImGui::SetWindowPos(ImVec2(io.DisplaySize.x - io.DisplaySize.x / 5.0, io.DisplaySize.y - io.DisplaySize.y / 5.0));
         ImGui::Begin("Light");
         ImGui::ColorEdit3("Ambient Color", ambient_color);
         ImGui::ColorEdit3("Diffuse Color", diffuse_color);
         ImGui::SliderFloat3("Diffuse position", diffuse_position, -20.0, 20.0);
         ImGui::SliderFloat("ambient intensity", &ambient_intensity, 0.0f, 5.0f);
-        ImGui::SliderFloat("specular strenght", &specularStrenght, 0.0f, 1.0f);
+        ImGui::SliderFloat("specular strenght", &specular_strength, 0.0f, 1.0f);
         ImGui::SliderInt("shininess", &shininess, 0, 512);
         ImGui::End();
 
-        shader.use();
-        glUniform1f(glGetUniformLocation(shader.programID, "ambientLightIntensity"), ambient_intensity);
-        glUniform3fv(glGetUniformLocation(shader.programID, "ambientLightColor"), 1, ambient_color);
-        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightColor"), 1, diffuse_color);
-        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightPosition"), 1, diffuse_position);
-        glUniform1f(glGetUniformLocation(shader.programID, "specularStrenght"), specularStrenght);
-        glUniform1i(glGetUniformLocation(shader.programID, "shininess"), shininess);
-
+        // DISPLAY FILE BROWSERS
         meshBrowser.Display();
         textureBrowser.Display();
 
+        // IF A MESH IS SELECTED WITH THE FILE BROWSER
         if(meshBrowser.HasSelected())
         {
-            /*
-            glDeleteBuffers(1000, tVBOs);
-            glDeleteBuffers(1000, tEBOs);
-            glDeleteVertexArrays(1000, tVAOs);*/
-
             std::cout << "Selected filename" << meshBrowser.GetSelected().string() << std::endl;
+
+            // LOAD MESH
             mesh.loadFromObj(meshBrowser.GetSelected().string());
+
+            // UPDATE COLORMODE SHADER PARAMETER
             if(mesh.hasColor()) {
                 shader.use();
                 glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 1);
@@ -425,18 +512,23 @@ int main(int argv, char** args) {
                 glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 0);
             }
             meshBrowser.ClearSelected();
-            /*
-            glGenVertexArrays(mesh.getFaces().size(), tVAOs);
-            glGenBuffers(mesh.getFaces().size(), tVBOs);
-            glGenBuffers(mesh.getFaces().size(), tEBOs);*/
+
+            // LOAD ARROW MESH FOR GRAVITY DEBUG
+            arrow.loadFromObj("../resources/arrow.obj");
         }
 
+        // IF A TEXTURE IS SELECTED
         if(textureBrowser.HasSelected()) {
             int width, height, nrChannels;
-            unsigned char *data = stbi_load(reinterpret_cast<const char *>(textureBrowser.GetSelected().c_str()), &width, &height, &nrChannels, 3);
+            unsigned char *data = stbi_load(
+                    reinterpret_cast<const char *>(textureBrowser.GetSelected().c_str()),
+                    &width,
+                    &height,
+                    &nrChannels,
+                    3
+                    );
             if(data) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-                //glGenerateMipmap(GL_TEXTURE_2D);
             } else { std::cout << "faild to load texture"; }
             textureBrowser.ClearSelected();
             stbi_image_free(data);
@@ -444,7 +536,7 @@ int main(int argv, char** args) {
 
 
           // ******************************************************** //
-         // ************************** RENDER ********************** //
+         // ************************ RENDERING ********************* //
         // ******************************************************** //
         ImGui::Render();
         int w, h;
@@ -457,53 +549,44 @@ int main(int argv, char** args) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+
         if(!mesh.getVertices().empty()) {
+            // pick shader
             shader.use();
+            // bind VERTEX ARRAY OBJECT
             glBindVertexArray(mesh.getVAO());
+            // DRAW
             glDrawElements(GL_TRIANGLES, (int)mesh.getElements().size(), GL_UNSIGNED_INT, nullptr);
+
+            glBindVertexArray(arrow.getVAO());
+            // update model matrix
+            glUniformMatrix4fv(glGetUniformLocation(shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrowModelMatrix));
+            glDrawElements(GL_TRIANGLES, (int)arrow.getElements().size(), GL_UNSIGNED_INT, nullptr);
         }
 
+        // RAY
         tetra_shader.use();
-        glBindVertexArray(rayVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, rayVBO);
+
+        // make data (two points -> line)
         float ray_data[6] = {origin[0], origin[1], origin[2],
                              origin[0] + 100 * direction[0],
                              origin[1] + 100 * direction[1],
                              origin[2] + 100 * direction[2]};
+
+        // update VBO
+        glBindBuffer(GL_ARRAY_BUFFER, rayVBO);
         glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), ray_data, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
+
+        // draw
+        glBindVertexArray(rayVAO);
         glDrawArrays(GL_LINES, 0, 2);
-        /*
-        for(int i = 0; i < mesh.getFaces().size(); i++) {
-            glm::vec3 t[4] = {mesh.getVertices()[mesh.getFaces()[i].x - 1],
-                          mesh.getVertices()[mesh.getFaces()[i].y - 1],
-                          mesh.getVertices()[mesh.getFaces()[i].z - 1],
-                          {tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2] }};
-            tetrahedron tetrahedron = {t[0], t[1], t[2], t[3]};
-            float volume = Mesh::tetrahedronVolume(tetrahedron);
 
-            const float green[4] = {0.f, 1.f, 0.f, 1.f};
-            const float red[4] = {1.f, 0.f, 0.f, 1.f};
 
-            if(volume >= 0) glUniform4fv(glGetUniformLocation(tetra_shader.programID, "color"), 1, green);
-            else glUniform4fv(glGetUniformLocation(tetra_shader.programID, "color"), 1, red);
-
-            unsigned int f[12] = {0, 1, 2, 0, 1, 3, 1, 2, 3, 2, 0, 3};
-            glBindVertexArray(tVAOs[i]);
-            glBindBuffer(GL_ARRAY_BUFFER, tVBOs[i]);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tEBOs[i]);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, 12 * sizeof(int), f, GL_DYNAMIC_DRAW);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * 4, t, GL_DYNAMIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
-            glEnableVertexAttribArray(0);
-            glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, nullptr);
-        }
-         */
-
+        // SWAP WINDOWS
         SDL_GL_SwapWindow(window);
     }
-    std::cout << "quitting gracefully";
+
+    SDL_Log("quitting gracefully");
 }
 
 
