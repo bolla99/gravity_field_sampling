@@ -340,7 +340,7 @@ int main(int argv, char** args) {
         const Uint8* numkey = SDL_GetKeyboardState(nullptr);
         if(numkey[SDL_SCANCODE_DOWN]) cam_position.z += io.DeltaTime * 10.f;
         if(numkey[SDL_SCANCODE_UP]) cam_position.z -= io.DeltaTime * 10.f;
-        
+
         if(numkey[SDL_SCANCODE_LEFT]) h_cam_angle += io.DeltaTime * 3.f;
         if(numkey[SDL_SCANCODE_RIGHT]) h_cam_angle -= io.DeltaTime * 3.f;
         if(numkey[SDL_SCANCODE_L]) v_cam_angle -= io.DeltaTime * 3.f;
@@ -579,6 +579,19 @@ int main(int argv, char** args) {
         glBindVertexArray(rayVAO);
         glDrawArrays(GL_LINES, 0, 2);
 
+        // AXIS DRAW
+        float axis[18] = {
+                0.f, 0.f, 0.f, 10.f, 0.f, 0.f,
+                0.f, 0.f, 0.f, 0.f, 10.f, 0.f,
+                0.f, 0.f, 0.f, 1.f, 0.f, 10.f
+        };
+        glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float), axis, GL_DYNAMIC_DRAW);
+        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0.8, 0, 0, 1);
+        glDrawArrays(GL_LINES, 0, 2);
+        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0, 0.8, 0, 1);
+        glDrawArrays(GL_LINES, 2, 2);
+        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0, 0, 0.8, 1);
+        glDrawArrays(GL_LINES, 4, 2);
 
         // SWAP WINDOWS
         SDL_GL_SwapWindow(window);
