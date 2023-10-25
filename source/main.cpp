@@ -245,11 +245,13 @@ int main(int argv, char** args) {
 
         // VIEW MATRIX
         glm::mat4 camTranslation = glm::translate(glm::mat4(1.f), cam_position);
-        glm::mat4 camRotationX = glm::rotate(glm::mat4(1.f), v_cam_angle, glm::vec3{-1.f, 0.f, 0.f});
-        glm::mat4 camRotationY = glm::rotate(glm::mat4(1.f), h_cam_angle, glm::vec3{0.f, 1.f, 0.f});
-        glm::mat4 viewMatrix = glm::inverse(camRotationX * camRotationY * camTranslation);
+        glm::quat quatY = {cos(h_cam_angle/2.f), 0.f, sin(h_cam_angle/2.f), 0.f};
+        glm::quat quatX = glm::quat(cos(v_cam_angle/2.f), sin(v_cam_angle/2.f)*(glm::toMat4(quatY)*glm::vec4(-1.f, 0.f, 0.f, 0.f)));
+        glm::quat quatXY = quatX * quatY;
 
-        glm::vec4 camPosition4 = camRotationX * camRotationY * camTranslation * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glm::mat4 viewMatrix = glm::inverse(glm::toMat4(quatXY) * camTranslation);
+
+        glm::vec4 camPosition4 = glm::toMat4(quatXY) * camTranslation * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         glm::vec3 cameraPosition3 = glm::vec3{camPosition4.x, camPosition4.y, camPosition4.z};
 
         // UPDATE SHADER CAMERA POSITION VALUE FOR SPECULAR LIGHT
@@ -324,15 +326,10 @@ int main(int argv, char** args) {
 
             // MOUSE CAMERA MOVEMENT
             if(event.type == SDL_MOUSEMOTION) {
+                // if motion + left button pressed
                 if(event.motion.state & SDL_BUTTON_LMASK) {
                     h_cam_angle -= io.DeltaTime * (float)event.motion.xrel;
-                    if(
-                            (v_cam_angle > (-M_PI / 2 + 0.1) && (float)event.motion.yrel < 0.f)
-                            || (v_cam_angle < (M_PI / 2 - 0.1) && (float)event.motion.yrel > 0.f)
-                            )
-                    {
-                        v_cam_angle += io.DeltaTime * (float)event.motion.yrel;
-                    }
+                    v_cam_angle += io.DeltaTime * (float)event.motion.yrel;
                 } else if(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LGUI]) { //if(event.motion.state & SDL_BUTTON_RMASK) {
                     cam_position.z += io.DeltaTime * (float)event.motion.yrel * 10.f;
                 }
@@ -343,10 +340,11 @@ int main(int argv, char** args) {
         const Uint8* numkey = SDL_GetKeyboardState(nullptr);
         if(numkey[SDL_SCANCODE_DOWN]) cam_position.z += io.DeltaTime * 10.f;
         if(numkey[SDL_SCANCODE_UP]) cam_position.z -= io.DeltaTime * 10.f;
+        
         if(numkey[SDL_SCANCODE_LEFT]) h_cam_angle += io.DeltaTime * 3.f;
         if(numkey[SDL_SCANCODE_RIGHT]) h_cam_angle -= io.DeltaTime * 3.f;
-        if(numkey[SDL_SCANCODE_L] && v_cam_angle > (-M_PI / 2 + 0.1)) v_cam_angle -= io.DeltaTime * 3.f;
-        if(numkey[SDL_SCANCODE_O] && v_cam_angle < (M_PI / 2 - 0.1)) v_cam_angle += io.DeltaTime * 3.f;
+        if(numkey[SDL_SCANCODE_L]) v_cam_angle -= io.DeltaTime * 3.f;
+        if(numkey[SDL_SCANCODE_O]) v_cam_angle += io.DeltaTime * 3.f;
 
         if(numkey[SDL_SCANCODE_W]) cam_position.z -= io.DeltaTime * 10.f;
         if(numkey[SDL_SCANCODE_S]) cam_position.z += io.DeltaTime * 10.f;
