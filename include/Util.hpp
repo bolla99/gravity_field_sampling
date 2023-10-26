@@ -14,6 +14,12 @@ namespace util {
 
     // cramer rule used (Ax = b, x_i = det(A_i) / det(A), A_i = A with i-column replaced with b
     glm::vec3 barycentric_coords(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& p);
+
+    float pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
+    float pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
+    float tetrahedronVolume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+    glm::vec3 tetrahedronBarycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP

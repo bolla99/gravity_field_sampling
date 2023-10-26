@@ -5,23 +5,35 @@
 //  Created by Giovanni Bollati on 24/03/23.
 //
 
+
+/* definition needed to activate gl functions
+ * declared in sdl_opengl_glext.h,
+ * which is included by sdl_opengl.h */
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
 #include "Mesh.hpp"
+#include "Util.hpp"
+
+// stdlib
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <stack>
 #include <fstream>
+
+// parallel processing
 #include <omp.h>
+
+// SDL
+#import <SDL.h>
 #include <SDL_opengl.h>
+
+// GLM
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
-#import <SDL.h>
 
-// IO
 void Mesh::loadFromObj(const std::string& path) {
     // reset mesh -> can be done on existing mesh
     clear();
@@ -301,6 +313,8 @@ void Mesh::addIndices(std::vector<std::string>& indices) {
         face_uv.z = std::stoi(indices[i + 2].substr(slash + 1, slash2 - slash - 1), nullptr);
         face_normals.z = std::stoi(indices[i + 2].substr( slash2 + 1), nullptr);
 
+        // uvs and normals checkers can be called since faces parsing comes after vertex parsing,
+        // that's why uvs and normals vector are already filled
         faces.push_back(face);
         if(hasUVs()) faces_uv.push_back(face_uv);
         if(hasNormals()) faces_normals.push_back(face_normals);
@@ -365,7 +379,7 @@ bool Mesh::hasNormals() const { return !normals.empty(); }
 // IS INSIDE CHECKER + HELPERS
 bool Mesh::isInside(const glm::vec3& v) const {
     double start = omp_get_wtime();
-    float minDistance = pointTriangleDistance(
+    float minDistance = util::pointTriangleDistance(
             v,
             vertices[faces[0].x],
             vertices[faces[0].y],
@@ -373,7 +387,7 @@ bool Mesh::isInside(const glm::vec3& v) const {
             );
 #pragma omp parallel for default(none) shared(minDistance, v)
     for(int i = 1; i < (int)faces.size(); i++) {
-        float distance = pointTriangleDistance(
+        float distance = util::pointTriangleDistance(
                 v,
                 vertices[faces[i].x],
                 vertices[faces[i].y],
@@ -389,44 +403,7 @@ bool Mesh::isInside(const glm::vec3& v) const {
     std::cout << "time elapsed: " << (omp_get_wtime() - start) << "\n";
     return minDistance < 0;
 }
-float Mesh::pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2) {
-    //std::cout << "Running point edge distance for point: " << point.toString() << " and edge: " << e1.toString() << " - " << e2.toString() << "\n";
-    glm::vec3 e1e2 = e2 - e1;
-    glm::vec3 e1point = point - e1;
-    float e1e2mag2 = glm::length2(e1e2);
-    float pos = glm::dot(e1e2, e1point) / e1e2mag2;
 
-    // CLAMP
-    if(pos < 0) pos = 0;
-    if(pos > 1) pos = 1;
-    //std::cout << "point edge distance " << (point - (e2*pos + e1*(1-pos))).mag() << "\n";
-    return glm::length(point - (e2*pos + e1*(1-pos)));
-}
-float Mesh::pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3) {
-    //std::cout << "Running point triangle distance for face with vertices: " << e1.toString() << e2.toString() << e3.toString() << "\n";
-    glm::vec3 e12 = e2 - e1;
-    glm::vec3 e13 = e3 - e1;
-    glm::vec3 e1point = point - e1;
-    glm::vec3 n = glm::cross(e12, e13);
-    float nMag2 = glm::length2(n);
-
-    // barycentric coordinates
-    float alpha = glm::dot(glm::cross(e12, e1point), n) / nMag2;
-    float beta = glm::dot(glm::cross(e1point, e13), n) / nMag2;
-    float gamma = 1 - alpha - beta;
-
-    // point projected on trinangle plane
-    glm ::vec3 pointProjected = e1*alpha + e2*beta + e3*gamma;
-
-    float semispace = glm::dot((point - pointProjected), n);
-    float semispace_sign;
-    if(semispace >= 0) semispace_sign = 1;
-    if(semispace < 0) semispace_sign = -1;
-    if(alpha >= 0 && beta >= 0 && gamma >= 0) return glm::length(point - pointProjected) * semispace_sign;
-    else if(alpha < 0) return pointEdgeDistance(point, e2, e3) * semispace_sign;
-    else if(beta < 0) return pointEdgeDistance(point, e1, e3) * semispace_sign;
-    else return pointEdgeDistance(point, e1, e2) * semispace_sign;
-}
 glm::vec3 Mesh::getMin() const {
     glm::vec3 min = vertices[0];
     for(int i = 1; i < vertices.size(); i++) {
@@ -446,16 +423,6 @@ glm::vec3 Mesh::getMax() const {
     return max;
 }
 
-float Mesh::tetrahedronVolume(tetrahedron t) {
-    return glm::dot(glm::cross(t.b1 - t.b2, t.b3 - t.b2), t.v - t.b2) / 6.f;
-}
-glm::vec3 Mesh::tetrahedronBarycentre(tetrahedron t) {
-    return (t.b1 * (1.f/4.f))
-    + (t.b2 * (1.f/4.f))
-    + (t.b3 * (1.f/4.f))
-    + (t.v * (1.f/4.f));
-}
-
 glm::vec3 Mesh::getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const {
     glm::vec3 gravity = {0.f, 0.f, 0.f};
     for(auto & face : faces) {
@@ -464,8 +431,8 @@ glm::vec3 Mesh::getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& 
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 tetrahedrons_vertex};
-        float mass = tetrahedronVolume(t);
-        glm::vec3 barycentre = tetrahedronBarycentre(t);
+        float mass = util::tetrahedronVolume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedronBarycentre(t.b1, t.b2, t.b3, t.v);
         float distance = glm::length(p - barycentre);
         gravity = gravity - ((p - barycentre)*mass) / (float)pow(distance, 3);
     }
@@ -480,8 +447,8 @@ glm::vec3 Mesh::getGravityFromTetrahedronsCorrected(const glm::vec3& p, const gl
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 tetrahedrons_vertex};
-        float mass = tetrahedronVolume(t);
-        glm::vec3 barycentre = tetrahedronBarycentre(t);
+        float mass = util::tetrahedronVolume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedronBarycentre(t.b1, t.b2, t.b3, t.v);
         gravity = gravity + ((barycentre - p)*mass) / (float)pow(glm::length(barycentre - p), 3);
     }
     return gravity;
@@ -495,7 +462,7 @@ float Mesh::volume(const glm::vec3& t) const {
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 t};
-        volume += tetrahedronVolume(tetrahedron) * 10;
+        volume += util::tetrahedronVolume(tetrahedron.b1, tetrahedron.b2, tetrahedron.b3, tetrahedron.v) * 10;
     }
     return volume;
 }

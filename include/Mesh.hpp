@@ -18,11 +18,14 @@
 #ifndef Mesh_hpp
 #define Mesh_hpp
 
-
+/* definition needed to activate gl functions
+ * declared in sdl_opengl_glext.h,
+ * which is included by sdl_opengl.h */
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
+// stdlib
 #include <cstdio>
 #include <vector>
 #include <string>
@@ -31,9 +34,11 @@
 #include <GL/glew.h>
 #endif
 
+// SDL / GLM
 #include <SDL_opengl.h>
 #include <glm/glm.hpp>
 
+// HELPER STRUCTS
 struct Face {
     unsigned int x, y, z;
 };
@@ -48,11 +53,13 @@ struct tetrahedron {
 };
 struct ray {
     glm::vec3 origin;
-    glm::vec3 dir;
+    glm::vec3 dir; // to be normalized if needed
 };
+// tube -> line segment
 struct tube {
     glm::vec3 t1, t2;
 };
+// point mass
 struct mass {
     glm::vec3 p;
     float m;
@@ -61,20 +68,10 @@ struct mass {
 class Mesh {
 
 public:
-    Mesh() {
-        vertices = std::vector<glm::vec3>();
-        colors = std::vector<Color>();
-        UVs = std::vector<UV>();
-        normals = std::vector<glm::vec3>();
+    Mesh() : vertices(), colors(), UVs(), normals(), faces(), faces_uv(), faces_normals(), attributes(), elements() {}
 
-        faces = std::vector<Face>();
-        faces_uv = std::vector<Face>();
-        faces_normals = std::vector<Face>();
-
-        attributes = std::vector<float>();
-        elements = std::vector<int>();
-    }
-
+    // delete VAO, VBO and EBO if they have been created after object creation
+    // no more cleanup needed
     ~Mesh() {
         if(VAO != 0) glDeleteVertexArrays(1, &VAO);
         if(VBO != 0) glDeleteBuffers(1, &VBO);
@@ -114,28 +111,26 @@ public:
     [[nodiscard]] const std::vector<int>& getElements() const;
 
     // for each face -> compute tetrahedron signed volume; find barycentre and add force to total
-    [[nodiscard]] glm::vec3 getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
-    [[nodiscard]] glm::vec3 getGravityFromTetrahedronsCorrected(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
+    [[deprecated]][[nodiscard]] glm::vec3 getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
+    [[deprecated]][[nodiscard]] glm::vec3 getGravityFromTetrahedronsCorrected(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
+
     [[nodiscard]] float volume(const glm::vec3& t) const;
 
     // ABSTRACTION FUNCTION
     std::string toString();
 
-    // GEOMETRY
-    static float pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
-    static float pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
-    static float tetrahedronVolume(tetrahedron t);
-    static glm::vec3 tetrahedronBarycentre(tetrahedron t);
-
+    // these are the function to read and modify
     glm::vec3 getGravityRT(int resolution, glm::vec3 point);
     [[nodiscard]] glm::vec3 getGravityFromTubes(int resolution, const std::vector<tube>& tubes, glm::vec3 point) const;
     static glm::vec3 getGravityFromMasses(const std::vector<mass>& masses, float G, glm::vec3 point);
+
     std::vector<tube> getTubes(int resolution);
     std::vector<mass> getMasses(int resolution);
 
     [[maybe_unused]] std::vector<glm::vec3> rayMeshIntersections(ray r);
-
     std::vector<glm::vec3> rayMeshIntersectionsOptimized(ray r);
+
+    // da capire
     std::vector<glm::vec3> getDiscreteSpace(int resolution);
     
 private:
@@ -149,19 +144,21 @@ private:
     // INDEXES
     std::vector<Face> faces; // position
     std::vector<Face> faces_uv; // uvs
-    std::vector<Face> faces_normals;
+    std::vector<Face> faces_normals; // normals
 
-    // elements and attributes for rendering; MUST BE INITIALIZED WITH setUpWithRendering
+    // elements and attributes for rendering; MUST BE INITIALIZED WITH setUpWithRendering, which is called by
+    // public api load function.
     std::vector<float> attributes; // position, color, UVs
     std::vector<int> elements;
+    // buffers for opengl rendering (they are deleted by decostructor)
     unsigned int VAO = 0;
     unsigned int VBO = 0;
     unsigned int EBO = 0;
 
-    // HELPER FUNCTIONS FOR LOADING FUNCTION
-
+    // ********* HELPER FUNCTIONS CALLED BY LOAD FUNCTION ********
     // receives and parses a vector of string which represent a face in obj format, which is x/y/z;
-    // while parsing it makes triangular any non-triangular face by fan method;
+    // while parsing it makes triangular any non-triangular face by fan method; it fills faces vectors
+    // addIndices can be called only by load function in order to fill faces vectors with a single face line parsed.
     // CALLED BY LOAD FUNCTION; WHICH IS PUBLIC API
     void addIndices(std::vector<std::string>& indices);
 
@@ -170,8 +167,11 @@ private:
 
     // CLEAR: clears every and vector and delete buffers for rendering; CALLED BY LOAD FUNCTION, WHICH IS PUBLIC API
     void clear();
+    // *************************+*************************************
 
+    // returns a point which has the minimum coordinate along all the three axis
     [[nodiscard]] glm::vec3 getMin() const;
+    // returns a point which has the maximum coordinate along the three axis
     [[nodiscard]] glm::vec3 getMax() const;
 
     // RAYCAST GRAVITATIONAL FIELD CALCULATION
