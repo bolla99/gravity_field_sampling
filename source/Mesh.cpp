@@ -512,7 +512,7 @@ glm::vec3 Mesh::getGravityRT(int resolution, glm::vec3 point) const {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
+            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(getVertices(), getFaces(), r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -638,7 +638,7 @@ glm::vec3 Mesh::getGravityFromMasses(const std::vector<mass>& masses, float G, g
 
 
 
-std::vector<tube> Mesh::getTubes(int resolution) {
+std::vector<tube> Mesh::getTubes(int resolution) const {
     omp_set_num_threads(omp_get_max_threads());
     std::vector<tube> tubes = {};
 
@@ -672,7 +672,7 @@ std::vector<tube> Mesh::getTubes(int resolution) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
+            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(getVertices(), getFaces(), r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -687,7 +687,7 @@ std::vector<tube> Mesh::getTubes(int resolution) {
 }
 
 
-std::vector<mass> Mesh::getMasses(int resolution) {
+std::vector<mass> Mesh::getMasses(int resolution) const {
     omp_set_num_threads(omp_get_max_threads());
     std::vector<tube> tubes = {};
     std::vector<mass> volumes = {};
@@ -723,7 +723,7 @@ std::vector<mass> Mesh::getMasses(int resolution) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = rayMeshIntersectionsOptimized(r);
+            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(getVertices(), getFaces(), r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -750,69 +750,6 @@ std::vector<mass> Mesh::getMasses(int resolution) {
     }
     std::cout << "get masses time elapsed " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
     return volumes;
-}
-std::vector<glm::vec3> Mesh::rayMeshIntersections(ray r) const {
-    // parameter: intersection = origin + direction * parameter
-    std::vector<glm::vec3> intersections = {};
-    std::vector<float> parameters = {};
-    float parameter;
-    for(auto & face : faces) {
-        if(util::rayTriangleIntersection(r.origin, r.dir, vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], &parameter)) {
-            parameters.push_back(parameter);
-        }
-    }
-    if(parameters.empty()) return intersections;
-    // sort to return intersection in order of distance from ray origin
-    std::sort(parameters.begin(), parameters.end());
-
-    // discard unique values in order to avoid double intersection through edges
-    auto new_last = std::unique(parameters.begin(), parameters.end(),
-                [](float f1, float f2) { return std::abs(f1 - f2) < std::numeric_limits<float>::epsilon(); });
-    parameters.resize(std::distance(parameters.begin(), new_last));
-    intersections.reserve(parameters.size());
-    for(float p : parameters) {
-        intersections.push_back(r.origin + r.dir * p);
-    }
-    return intersections;
-}
-std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) const {
-    // parameter: intersection = origin + direction * parameter
-    std::vector<glm::vec3> intersections = {};
-    std::vector<float> parameters = {};
-    float parameter;
-    for(auto & face : faces) {
-        glm::vec3 t0 = vertices[face.x - 1];
-        glm::vec3 t1 = vertices[face.y - 1];
-        glm::vec3 t2 = vertices[face.z - 1];
-        glm::vec3 o = r.origin;
-        // CUSTOM RAY MESH INTERSECTION: since ray is parallel to z axis, its possible
-        // to do a prececk and exclude triangles that are out of ray vision;
-
-        if(t0.x > o.x && t1.x > o.x && t2.x > o.x) continue;
-        if(t0.x < o.x && t1.x < o.x && t2.x < o.x) continue;
-        if(t0.y > o.y && t1.y > o.y && t2.y > o.y) continue;
-        if(t0.y < o.y && t1.y < o.y && t2.y < o.y) continue;
-        float Do = -o.x + o.y;
-        if(t0.y < t0.x + Do && t1.y < t1.x + Do && t2.y < t2.x + Do) continue;
-        if(t0.y > t0.x + Do && t1.y > t1.x + Do && t2.y > t2.x + Do) continue;
-
-        if(util::rayTriangleIntersection(r.origin, r.dir, t0, t1, t2, &parameter)) {
-            parameters.push_back(parameter);
-        }
-    }
-    if(parameters.empty()) return intersections;
-    // sort to return intersection in order of distance from ray origin
-    std::sort(parameters.begin(), parameters.end());
-
-    // discard unique values in order to avoid double intersection through edges
-    auto new_last = std::unique(parameters.begin(), parameters.end(),
-                                [](float f1, float f2) { return std::abs(f1 - f2) < std::numeric_limits<float>::epsilon(); });
-    parameters.resize(std::distance(parameters.begin(), new_last));
-    intersections.reserve(parameters.size());
-    for(float p : parameters) {
-        intersections.push_back(r.origin + r.dir * p);
-    }
-    return intersections;
 }
 
 std::vector<glm::vec3> Mesh::getDiscreteSpace(int resolution) {

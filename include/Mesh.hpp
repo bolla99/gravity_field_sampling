@@ -39,9 +39,8 @@
 #include <glm/glm.hpp>
 
 // HELPER STRUCTS
-struct Face {
-    unsigned int x, y, z;
-};
+using Face = glm::vec<3, unsigned int>;
+
 struct Color {
     float r, g, b;
 };
@@ -120,15 +119,12 @@ public:
     std::string toString();
 
     // these are the function to read and modify
-    glm::vec3 getGravityRT(int resolution, glm::vec3 point) const;
+    [[nodiscard]] glm::vec3 getGravityRT(int resolution, glm::vec3 point) const;
     [[nodiscard]] glm::vec3 getGravityFromTubes(int resolution, const std::vector<tube>& tubes, glm::vec3 point) const;
     static glm::vec3 getGravityFromMasses(const std::vector<mass>& masses, float G, glm::vec3 point);
 
-    std::vector<tube> getTubes(int resolution);
-    std::vector<mass> getMasses(int resolution);
-
-    [[maybe_unused]] std::vector<glm::vec3> rayMeshIntersections(ray r) const;
-    std::vector<glm::vec3> rayMeshIntersectionsOptimized(ray r) const;
+    [[nodiscard]] std::vector<tube> getTubes(int resolution) const;
+    [[nodiscard]] std::vector<mass> getMasses(int resolution) const;
 
     // da capire
     std::vector<glm::vec3> getDiscreteSpace(int resolution);
