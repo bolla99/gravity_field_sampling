@@ -467,7 +467,7 @@ float Mesh::volume(const glm::vec3& t) const {
     return volume;
 }
 
-glm::vec3 Mesh::getGravityRT(int resolution, glm::vec3 point) {
+glm::vec3 Mesh::getGravityRT(int resolution, glm::vec3 point) const {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
@@ -751,13 +751,13 @@ std::vector<mass> Mesh::getMasses(int resolution) {
     std::cout << "get masses time elapsed " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
     return volumes;
 }
-std::vector<glm::vec3> Mesh::rayMeshIntersections(ray r) {
+std::vector<glm::vec3> Mesh::rayMeshIntersections(ray r) const {
     // parameter: intersection = origin + direction * parameter
     std::vector<glm::vec3> intersections = {};
     std::vector<float> parameters = {};
     float parameter;
     for(auto & face : faces) {
-        if(rayTriangleIntersection(r, vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], &parameter)) {
+        if(util::rayTriangleIntersection(r.origin, r.dir, vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], &parameter)) {
             parameters.push_back(parameter);
         }
     }
@@ -775,7 +775,7 @@ std::vector<glm::vec3> Mesh::rayMeshIntersections(ray r) {
     }
     return intersections;
 }
-std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) {
+std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) const {
     // parameter: intersection = origin + direction * parameter
     std::vector<glm::vec3> intersections = {};
     std::vector<float> parameters = {};
@@ -796,7 +796,7 @@ std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) {
         if(t0.y < t0.x + Do && t1.y < t1.x + Do && t2.y < t2.x + Do) continue;
         if(t0.y > t0.x + Do && t1.y > t1.x + Do && t2.y > t2.x + Do) continue;
 
-        if(rayTriangleIntersection(r, t0, t1, t2, &parameter)) {
+        if(util::rayTriangleIntersection(r.origin, r.dir, t0, t1, t2, &parameter)) {
             parameters.push_back(parameter);
         }
     }
@@ -813,35 +813,6 @@ std::vector<glm::vec3> Mesh::rayMeshIntersectionsOptimized(ray r) {
         intersections.push_back(r.origin + r.dir * p);
     }
     return intersections;
-}
-bool Mesh::rayTriangleIntersection(ray r, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
-    const float EPSILON = 0.0000001;
-    glm::vec3 e1 = t2 - t1;
-    glm::vec3 e2 = t3 - t1;
-
-    glm::mat3 m = glm::mat3(-r.dir.x, -r.dir.y, -r.dir.z,
-                            e1.x, e1.y, e1.z,
-                            e2.x, e2.y, e2.z);
-    glm::vec3 o = glm::vec3(r.origin.x - t1.x, r.origin.y - t1.y, r.origin.z - t1.z);
-
-    float d = glm::determinant(m);
-
-    float u = glm::determinant(glm::mat3(-r.dir.x, -r.dir.y, -r.dir.z, o.x, o.y, o.z, e2.x, e2.y, e2.z)) / d;
-    if(u < 0.0 || u > 1.0) return false;
-    float v = glm::determinant(glm::mat3(-r.dir.x, -r.dir.y, -r.dir.z, e1.x, e1.y, e1.z, o.x, o.y, o.z)) / d;
-    if(v < 0.0 || v > 1.0 || u + v > 1.0) return false;
-    float t = glm::determinant(glm::mat3(o.x, o.y, o.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z)) / d;
-    if(t < EPSILON) return false;
-
-    glm::vec3 tNorm = glm::cross(e1, e2);
-    float raydotnorm = glm::dot(r.dir, tNorm);
-
-    if (raydotnorm > -EPSILON && raydotnorm < EPSILON) {
-        return false;    // This ray is parallel to this triangle.
-    }
-
-    *parameter = t;
-    return true;
 }
 
 std::vector<glm::vec3> Mesh::getDiscreteSpace(int resolution) {

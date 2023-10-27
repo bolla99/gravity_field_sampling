@@ -120,15 +120,15 @@ public:
     std::string toString();
 
     // these are the function to read and modify
-    glm::vec3 getGravityRT(int resolution, glm::vec3 point);
+    glm::vec3 getGravityRT(int resolution, glm::vec3 point) const;
     [[nodiscard]] glm::vec3 getGravityFromTubes(int resolution, const std::vector<tube>& tubes, glm::vec3 point) const;
     static glm::vec3 getGravityFromMasses(const std::vector<mass>& masses, float G, glm::vec3 point);
 
     std::vector<tube> getTubes(int resolution);
     std::vector<mass> getMasses(int resolution);
 
-    [[maybe_unused]] std::vector<glm::vec3> rayMeshIntersections(ray r);
-    std::vector<glm::vec3> rayMeshIntersectionsOptimized(ray r);
+    [[maybe_unused]] std::vector<glm::vec3> rayMeshIntersections(ray r) const;
+    std::vector<glm::vec3> rayMeshIntersectionsOptimized(ray r) const;
 
     // da capire
     std::vector<glm::vec3> getDiscreteSpace(int resolution);
@@ -173,8 +173,5 @@ private:
     [[nodiscard]] glm::vec3 getMin() const;
     // returns a point which has the maximum coordinate along the three axis
     [[nodiscard]] glm::vec3 getMax() const;
-
-    // RAYCAST GRAVITATIONAL FIELD CALCULATION
-    static bool rayTriangleIntersection(ray r, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
 };
 #endif /* Mesh_hpp */

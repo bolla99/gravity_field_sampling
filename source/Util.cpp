@@ -106,3 +106,33 @@ glm::vec3 util::tetrahedronBarycentre(const glm::vec3& b1, const glm::vec3& b2, 
            + (b3 * (1.f/4.f))
            + (v * (1.f/4.f));
 }
+
+bool util::rayTriangleIntersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
+    const float EPSILON = 0.0000001;
+    glm::vec3 e1 = t2 - t1;
+    glm::vec3 e2 = t3 - t1;
+
+    glm::mat3 m = glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z,
+                            e1.x, e1.y, e1.z,
+                            e2.x, e2.y, e2.z);
+    glm::vec3 o = glm::vec3(ray_origin.x - t1.x, ray_origin.y - t1.y, ray_origin.z - t1.z);
+
+    float d = glm::determinant(m);
+
+    float u = glm::determinant(glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z, o.x, o.y, o.z, e2.x, e2.y, e2.z)) / d;
+    if(u < 0.0 || u > 1.0) return false;
+    float v = glm::determinant(glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z, e1.x, e1.y, e1.z, o.x, o.y, o.z)) / d;
+    if(v < 0.0 || v > 1.0 || u + v > 1.0) return false;
+    float t = glm::determinant(glm::mat3(o.x, o.y, o.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z)) / d;
+    if(t < EPSILON) return false;
+
+    glm::vec3 tNorm = glm::cross(e1, e2);
+    float raydotnorm = glm::dot(ray_dir, tNorm);
+
+    if (raydotnorm > -EPSILON && raydotnorm < EPSILON) {
+        return false;    // This ray is parallel to this triangle.
+    }
+
+    *parameter = t;
+    return true;
+}
