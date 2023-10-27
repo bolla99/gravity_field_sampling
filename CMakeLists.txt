@@ -22,7 +22,9 @@ add_executable(gl_test_project
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
-		source/util.cpp)
+		source/util.cpp
+		include/gravity.hpp
+		source/gravity.cpp)
 
 # SELECT GPU COMPUTING IMPLEMENTATION BASED ON OS
 if(WIN32)
