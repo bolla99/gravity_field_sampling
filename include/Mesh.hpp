@@ -25,6 +25,8 @@
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
+#include <gravity.hpp>
+
 // stdlib
 #include <cstdio>
 #include <vector>
@@ -40,28 +42,9 @@
 
 // HELPER STRUCTS
 using Face = glm::vec<3, unsigned int>;
-
+using UV = glm::vec2;
 struct Color {
     float r, g, b;
-};
-struct UV {
-    float x, y;
-};
-struct tetrahedron {
-    glm::vec3 b1, b2, b3, v;
-};
-struct ray {
-    glm::vec3 origin;
-    glm::vec3 dir; // to be normalized if needed
-};
-// tube -> line segment
-struct tube {
-    glm::vec3 t1, t2;
-};
-// point mass
-struct mass {
-    glm::vec3 p;
-    float m;
 };
 
 class Mesh {
@@ -109,25 +92,8 @@ public:
     [[nodiscard]] const std::vector<float>& getAttributes() const;
     [[nodiscard]] const std::vector<int>& getElements() const;
 
-    // for each face -> compute tetrahedron signed volume; find barycentre and add force to total
-    [[deprecated]][[nodiscard]] glm::vec3 getGravityFromTetrahedrons(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
-    [[deprecated]][[nodiscard]] glm::vec3 getGravityFromTetrahedronsCorrected(const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) const;
-
-    [[nodiscard]] float volume(const glm::vec3& t) const;
-
     // ABSTRACTION FUNCTION
     std::string toString();
-
-    // these are the function to read and modify
-    [[nodiscard]] glm::vec3 getGravityRT(int resolution, glm::vec3 point) const;
-    [[nodiscard]] glm::vec3 getGravityFromTubes(int resolution, const std::vector<tube>& tubes, glm::vec3 point) const;
-    static glm::vec3 getGravityFromMasses(const std::vector<mass>& masses, float G, glm::vec3 point);
-
-    [[nodiscard]] std::vector<tube> getTubes(int resolution) const;
-    [[nodiscard]] std::vector<mass> getMasses(int resolution) const;
-
-    // da capire
-    std::vector<glm::vec3> getDiscreteSpace(int resolution);
     
 private:
     // REPRESENTATION
@@ -164,10 +130,5 @@ private:
     // CLEAR: clears every and vector and delete buffers for rendering; CALLED BY LOAD FUNCTION, WHICH IS PUBLIC API
     void clear();
     // *************************+*************************************
-
-    // returns a point which has the minimum coordinate along all the three axis
-    [[nodiscard]] glm::vec3 getMin() const;
-    // returns a point which has the maximum coordinate along the three axis
-    [[nodiscard]] glm::vec3 getMax() const;
 };
 #endif /* Mesh_hpp */

@@ -206,3 +206,22 @@ std::vector<glm::vec3> util::rayMeshIntersectionsOptimized(const std::vector<glm
     }
     return intersections;
 }
+
+glm::vec3 util::getMin(const std::vector<glm::vec3>& vertices) {
+    glm::vec3 min = vertices[0];
+    for(int i = 1; i < vertices.size(); i++) {
+        if(vertices[i].x < min.x) min.x = vertices[i].x;
+        if(vertices[i].y < min.y) min.y = vertices[i].y;
+        if(vertices[i].z < min.z) min.z = vertices[i].z;
+    }
+    return min;
+}
+glm::vec3 util::getMax(const std::vector<glm::vec3>& vertices) {
+    glm::vec3 max = vertices[0];
+    for(int i = 1; i < vertices.size(); i++) {
+        if(vertices[i].x > max.x) max.x = vertices[i].x;
+        if(vertices[i].y > max.y) max.y = vertices[i].y;
+        if(vertices[i].z > max.z) max.z = vertices[i].z;
+    }
+    return max;
+}

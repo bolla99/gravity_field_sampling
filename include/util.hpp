@@ -32,6 +32,10 @@ namespace util {
                                                                               glm::vec3 ray_origin, glm::vec3 ray_dir
     );
 
+    // returns a point which has the minimum coordinate along all the three axis
+    glm::vec3 getMin(const std::vector<glm::vec3>& vertices);
+    // returns a point which has the maximum coordinate along the three axis
+    glm::vec3 getMax(const std::vector<glm::vec3>& vertices);
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP

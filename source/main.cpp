@@ -18,6 +18,7 @@
 #include <util.hpp>
 #include <Shader.hpp>
 #include <GPUComputing.hpp>
+#include <gravity.hpp>
 
 // stdlib
 #include <iostream>
@@ -205,8 +206,8 @@ int main(int argv, char** args) {
     int gravity_resolution = 0;
 
     // tubes and masses containers
-    std::vector<tube> tubes = {};
-    std::vector<mass> masses = {};
+    std::vector<gravity::tube> tubes = {};
+    std::vector<gravity::mass> masses = {};
 
     // mesh volume
     float volume = 0.f;
@@ -302,11 +303,11 @@ int main(int argv, char** args) {
          */
 
         // UPDATE MESH VOLUME
-        volume = mesh.volume({tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
+        volume = gravity::volume(mesh.getVertices(), mesh.getFaces(), {tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
 
         // UPDATE GRAVITY WITH TETRAHEDRONS (REAL TIME - done every frame)
-        gravity_with_tetrahedrons = mesh.getGravityFromTetrahedrons(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
-        gravity_with_tetrahedrons_corrected = mesh.getGravityFromTetrahedronsCorrected(glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+        gravity_with_tetrahedrons = gravity::getGravityFromTetrahedrons(mesh.getVertices(), mesh.getFaces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+        gravity_with_tetrahedrons_corrected = gravity::getGravityFromTetrahedronsCorrected(mesh.getVertices(), mesh.getFaces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
 
 
 
@@ -389,29 +390,29 @@ int main(int argv, char** args) {
             ImGui::InputInt("ray gravity resolution", &gravity_resolution);
             ImGui::InputFloat3("potential point", potential_point);
             if(ImGui::Button("calculate gravity rt")) {
-                gravity = mesh.getGravityRT(gravity_resolution, glm::make_vec3(potential_point));
+                gravity = gravity::getGravityRT(mesh.getVertices(), mesh.getFaces(), gravity_resolution, glm::make_vec3(potential_point));
             }
-            if(ImGui::Button("set up tubes")) { tubes = mesh.getTubes(gravity_resolution); }
+            if(ImGui::Button("set up tubes")) { tubes = gravity::getTubes(mesh.getVertices(), mesh.getFaces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with tubes")) {
-                gravity = mesh.getGravityFromTubes(gravity_resolution, tubes, glm::make_vec3(potential_point));
+                gravity = gravity::getGravityFromTubes(mesh.getVertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
             }
-            if(ImGui::Button("set up masses")) { masses = mesh.getMasses(gravity_resolution); }
+            if(ImGui::Button("set up masses")) { masses = gravity::getMasses(mesh.getVertices(), mesh.getFaces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with masses")) {
-                gravity = Mesh::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
+                gravity = gravity::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
             }
             ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
                 auto masses_as_float = (float *) &masses.front();
-                std::vector<glm::vec3> space = mesh.getDiscreteSpace(gravity_resolution);
+                std::vector<glm::vec3> space = gravity::getDiscreteSpace(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
                 for (int i = 0; i < 100; i++) {
                     std::cout << "{" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
                 }
                 auto space_as_float = (float *) (glm::value_ptr(space.front()));
                 float *output_gravity = GPUComputing::getGravityFromPointMassesAndDiscreteSpace(
                         masses_as_float,
-                        masses.size() * sizeof(mass),
+                        masses.size() * sizeof(gravity::mass),
                         space_as_float,
                         space.size() * sizeof(glm::vec3)
                         );
@@ -583,7 +584,7 @@ int main(int argv, char** args) {
         float axis[18] = {
                 0.f, 0.f, 0.f, 10.f, 0.f, 0.f,
                 0.f, 0.f, 0.f, 0.f, 10.f, 0.f,
-                0.f, 0.f, 0.f, 1.f, 0.f, 10.f
+                0.f, 0.f, 0.f, 0.f, 0.f, 10.f
         };
         glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float), axis, GL_DYNAMIC_DRAW);
         glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0.8, 0, 0, 1);
