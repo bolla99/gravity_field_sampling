@@ -2,7 +2,7 @@
 // Created by Giovanni Bollati on 15/05/23.
 //
 
-#include <Util.hpp>
+#include <util.hpp>
 
 glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors

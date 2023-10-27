@@ -15,7 +15,7 @@
 
 // user defined types
 #include <Mesh.hpp>
-#include <Util.hpp>
+#include <util.hpp>
 #include <Shader.hpp>
 #include <GPUComputing.hpp>
 

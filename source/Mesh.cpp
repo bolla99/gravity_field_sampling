@@ -14,7 +14,7 @@
 #endif
 
 #include "Mesh.hpp"
-#include "Util.hpp"
+#include "util.hpp"
 
 // stdlib
 #include <iostream>
