@@ -8,7 +8,6 @@
 #include <omp.h>
 #include <SDL.h>
 
-
 std::vector<gravity::tube> gravity::getTubes(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
@@ -242,6 +241,42 @@ std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, i
         }
     }
     return v;
+}
+
+octree<gravity::cube>* gravity::getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec3 max, int resolution) {
+    omp_set_num_threads(omp_get_max_threads());
+    glm::vec3 center = (max + min) * 0.5f;
+    float x_width = max.x - min.x;
+    float y_width = max.y - min.y;
+    float z_width = max.z - min.z;
+    float max_extent = x_width;
+    if (y_width > max_extent) max_extent = y_width;
+    if (z_width > max_extent) max_extent = z_width;
+
+    min = center - (max_extent / 2.0f);
+    max = center + (max_extent / 2.0f);
+
+    gravity::cube cube = {center, max_extent / 2.0f };
+    auto f = [](gravity::cube c)->std::array<gravity::cube, 8>{
+        float new_extent = c.extent / 2.0f;
+        glm::vec3 min = {c.center.x - new_extent, c.center.y - new_extent, c.center.z - new_extent};
+        std::array<gravity::cube, 8> new_cubes{};
+        new_cubes[0] = {{min.x, min.y, min.z}, new_extent};
+        new_cubes[1] = {{min.x + c.extent, min.y, min.z}, new_extent};
+        new_cubes[2] = {{min.x, min.y + c.extent, min.z}, new_extent};
+        new_cubes[3] = {{min.x + c.extent, min.y + c.extent, min.z}, new_extent};
+        new_cubes[4] = {{min.x, min.y, min.z + c.extent}, new_extent};
+        new_cubes[5] = {{min.x + c.extent, min.y, min.z + c.extent}, new_extent};
+        new_cubes[6] = {{min.x, min.y + c.extent, min.z + c.extent}, new_extent};
+        new_cubes[7] = {{min.x + c.extent, min.y + c.extent, min.z + c.extent}, new_extent};
+        return new_cubes;
+    };
+    auto condition = [](std::array<gravity::cube, 8>)->bool {
+        return true;
+    };
+    auto root = new octree<gravity::cube>(cube);
+    root->execute(resolution, cube, f, condition);
+    return root;
 }
 
 glm::vec3 gravity::getGravityRT(

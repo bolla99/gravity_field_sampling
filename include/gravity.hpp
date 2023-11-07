@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
+#include <octree.hpp>
 
 namespace gravity {
     // tube -> line segment
@@ -25,6 +26,10 @@ namespace gravity {
     struct tetrahedron {
         glm::vec3 b1, b2, b3, v;
     };
+    struct cube {
+        glm::vec3 center;
+        float extent;
+    };
 
     std::vector<tube> getTubes(
             const std::vector<glm::vec3>& vertices,
@@ -38,7 +43,9 @@ namespace gravity {
     glm::vec3 getGravityFromTubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
     glm::vec3 getGravityFromMasses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point);
 
+    // hanno la stessa complessità, ma la versione con octree ha una
     std::vector<glm::vec3> getDiscreteSpace(glm::vec3 min, glm::vec3 max, int resolution);
+    octree<gravity::cube>* getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec3 max, int resolution);
 
     glm::vec3 getGravityRT(
             const std::vector<glm::vec3>& vertices,
