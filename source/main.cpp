@@ -19,6 +19,7 @@
 #include <Shader.hpp>
 #include <GPUComputing.hpp>
 #include <gravity.hpp>
+#include <octree.hpp>
 
 // stdlib
 #include <iostream>
@@ -416,6 +417,12 @@ int main(int argv, char** args) {
                         space_as_float,
                         space.size() * sizeof(glm::vec3)
                         );
+            }
+            if(ImGui::Button("test discrete space as octree")) {
+                auto o = gravity::getDiscreteSpaceAsOctree(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
+                std::cout << "is leaf?: " << (o->isLeaf() ? "true" : "false") << std::endl;
+                std::cout << "size of octree: " << o->bytesize() << std::endl;
+                delete o;
             }
 
             // GRAVITY OUTPUTS
