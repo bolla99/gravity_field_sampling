@@ -11,6 +11,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/norm.hpp>
+
 namespace util {
     glm::quat rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest);
 
@@ -36,6 +37,12 @@ namespace util {
     glm::vec3 getMin(const std::vector<glm::vec3>& vertices);
     // returns a point which has the maximum coordinate along the three axis
     glm::vec3 getMax(const std::vector<glm::vec3>& vertices);
+
+    // cube geometry
+
+    // pre requisite: p is inside cube
+    std::array<float, 8> trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+    bool isInsideCube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP

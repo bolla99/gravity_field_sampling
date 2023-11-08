@@ -3,6 +3,8 @@
 //
 
 #include <util.hpp>
+#include <array>
+#include <cmath>
 
 glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors
@@ -224,4 +226,24 @@ glm::vec3 util::getMax(const std::vector<glm::vec3>& vertices) {
         if(vertices[i].z > max.z) max.z = vertices[i].z;
     }
     return max;
+}
+
+std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
+    std::array<float, 8> volume_per_corner{};
+    for(int i = 0; i < 8; i++) {
+        volume_per_corner[i] = abs(cube[i].x - p.x)*abs(cube[i].y - p.y)*abs(cube[i].z - p.z);
+    }
+    // sort values
+    // octant semantic is --- +-- -+- ++- --+ +-+ -++ +++
+    std::array<float, 8> coords{};
+    float volume = abs(cube[7].x - cube[0].x)*abs(cube[7].y - cube[0].y)*abs(cube[7].z - cube[0].z);
+    for(int i = 0; i < 8; i++) {
+        coords[i] = volume_per_corner[7 - i] / volume;
+    }
+    return coords;
+}
+
+bool util::isInsideCube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
+    return p.x >= cube[0].x && p.y >= cube[0].y && p.z >= cube[0].z &&
+           p.x <= cube[7].x && p.y <= cube[7].y && p.z <= cube[7].z;
 }
