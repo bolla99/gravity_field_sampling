@@ -26,7 +26,9 @@ add_executable(gl_test_project
 		include/gravity.hpp
 		source/gravity.cpp
         include/octree.hpp
-		source/octree.cpp)
+		source/octree.cpp
+		include/timer.hpp
+)
 
 # SELECT GPU COMPUTING IMPLEMENTATION BASED ON OS
 if(WIN32)
