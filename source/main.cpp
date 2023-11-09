@@ -19,6 +19,7 @@
 #include <Shader.hpp>
 #include <GPUComputing.hpp>
 #include <gravity.hpp>
+#include <timer.hpp>
 #include <octree.hpp>
 
 // stdlib
@@ -419,6 +420,8 @@ int main(int argv, char** args) {
                         );
             }
             if(ImGui::Button("test discrete space as octree")) {
+                Timer timer{};
+                timer.log();
                 auto o = gravity::getDiscreteSpaceAsOctree(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
                 std::cout << "is leaf?: " << (o->isLeaf() ? "true" : "false") << std::endl;
                 std::cout << "size of octree: " << o->bytesize() << std::endl;
@@ -438,6 +441,7 @@ int main(int argv, char** args) {
                 for(int i = 0; i < 8; i++) {
                     std::cout << "trilinear coords " << i << ": " << trilinear_coords[i] << std::endl;
                 }
+                timer.log();
             }
 
             // GRAVITY OUTPUTS
