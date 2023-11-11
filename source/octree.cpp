@@ -51,3 +51,4 @@ void octree<T>::expand() {
 
 
 template class octree<gravity::cube>;
+template class octree<gravity::gravity_cube>;
