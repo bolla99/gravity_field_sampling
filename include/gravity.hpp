@@ -50,8 +50,9 @@ namespace gravity {
     octree<gravity::gravity_cube>* getGravityOctreeFromMasses(
             glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses);
 
-    // hanno la stessa complessità, ma la versione con octree ha una
+    // vettore monodimensionale for(x) {for(y) {for(z)}}}
     std::vector<glm::vec3> getDiscreteSpace(glm::vec3 min, glm::vec3 max, int resolution);
+
     octree<gravity::cube>* getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec3 max, int resolution);
 
     glm::vec3 getGravityRT(
