@@ -38,6 +38,10 @@ namespace util {
     // returns a point which has the maximum coordinate along the three axis
     glm::vec3 getMax(const std::vector<glm::vec3>& vertices);
 
+    // return an array of 4 floats; 3 first values are coordinates of the center of the cube
+    // the fourth float is the edge length
+    std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max);
+
     // cube geometry
 
     // pre requisite: p is inside cube

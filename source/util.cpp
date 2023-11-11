@@ -228,6 +228,17 @@ glm::vec3 util::getMax(const std::vector<glm::vec3>& vertices) {
     return max;
 }
 
+std::array<float, 4> util::getBox(const glm::vec3& min, const glm::vec3& max) {
+    auto center = (max + min) * 0.5f;
+    float x_width = max.x - min.x;
+    float y_width = max.y - min.y;
+    float z_width = max.z - min.z;
+    float max_extent = x_width;
+    if (y_width > max_extent) max_extent = y_width;
+    if (z_width > max_extent) max_extent = z_width;
+    return {center.x, center.y, center.z, max_extent};
+}
+
 std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
