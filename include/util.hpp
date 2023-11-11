@@ -5,8 +5,11 @@
 #ifndef GL_TEST_PROJECT_UTIL_HPP
 #define GL_TEST_PROJECT_UTIL_HPP
 
+// std
 #include <vector>
+#include <array>
 
+// glm
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -40,7 +43,16 @@ namespace util {
 
     // return an array of 4 floats; 3 first values are coordinates of the center of the cube
     // the fourth float is the edge length
-    inline std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max);
+    inline std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max) {
+        auto center = (max + min) * 0.5f;
+        float x_width = max.x - min.x;
+        float y_width = max.y - min.y;
+        float z_width = max.z - min.z;
+        float max_extent = x_width;
+        if (y_width > max_extent) max_extent = y_width;
+        if (z_width > max_extent) max_extent = z_width;
+        return {center.x, center.y, center.z, max_extent};
+    }
 
     // allows to select a bounding box of a point from a 3d space vector
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
