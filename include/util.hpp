@@ -40,10 +40,12 @@ namespace util {
 
     // return an array of 4 floats; 3 first values are coordinates of the center of the cube
     // the fourth float is the edge length
-    std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max);
+    inline std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max);
+
+    // allows to select a bounding box of a point from a 3d space vector
+    std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
 
     // cube geometry
-
     // pre requisite: p is inside cube
     std::array<float, 8> trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
     bool isInsideCube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);

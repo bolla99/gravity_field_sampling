@@ -239,6 +239,26 @@ std::array<float, 4> util::getBox(const glm::vec3& min, const glm::vec3& max) {
     return {center.x, center.y, center.z, max_extent};
 }
 
+std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point) {
+    auto x_extent = point.x - min.x;
+    auto y_extent = point.y - min.y;
+    auto z_extent = point.z - min.z;
+    auto unit = range / (float)resolution;
+    auto x_i = x_extent / unit;
+    auto y_i = y_extent / unit;
+    auto z_i = z_extent / unit;
+    return std::array<std::array<int, 3>, 8>{
+            std::array<int, 3>{(int)floor(x_i), (int)floor(y_i), (int)floor(z_i)},
+            std::array<int, 3>{(int)ceil(x_i), (int)floor(y_i), (int)floor(z_i)},
+            std::array<int, 3>{(int)floor(x_i), (int)ceil(y_i), (int)floor(z_i)},
+            std::array<int, 3>{(int)ceil(x_i), (int)ceil(y_i), (int)floor(z_i)},
+            std::array<int, 3>{(int)floor(x_i), (int)floor(y_i), (int)ceil(z_i)},
+            std::array<int, 3>{(int)ceil(x_i), (int)floor(y_i), (int)ceil(z_i)},
+            std::array<int, 3>{(int)floor(x_i), (int)ceil(y_i), (int)ceil(z_i)},
+            std::array<int, 3>{(int)ceil(x_i), (int)ceil(y_i), (int)ceil(z_i)},
+    };
+}
+
 std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
