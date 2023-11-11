@@ -400,7 +400,10 @@ int main(int argv, char** args) {
             }
             if(ImGui::Button("set up masses")) { masses = gravity::getMasses(mesh.getVertices(), mesh.getFaces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with masses")) {
+                Timer t{};
+                t.log();
                 gravity = gravity::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
+                t.log();
             }
             ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);
 
@@ -421,12 +424,12 @@ int main(int argv, char** args) {
             }
             if(ImGui::Button("test discrete space as octree")) {
                 Timer timer{};
-                timer.log();
+                timer.log(); /*
                 auto o = gravity::getDiscreteSpaceAsOctree(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
                 std::cout << "is leaf?: " << (o->isLeaf() ? "true" : "false") << std::endl;
                 std::cout << "size of octree: " << o->bytesize() << std::endl;
                 delete o;
-
+                /*
                 // test trilinear interpolation
                 std::array<glm::vec3, 8> cube = {glm::vec3{-1.0, -1.0, -1.0},
                                                  glm::vec3{1.0, -1.0, -1.0},
@@ -440,7 +443,8 @@ int main(int argv, char** args) {
                 std::array<float, 8> trilinear_coords = util::trilinearCoordinates(glm::make_vec3(potential_point), cube);
                 for(int i = 0; i < 8; i++) {
                     std::cout << "trilinear coords " << i << ": " << trilinear_coords[i] << std::endl;
-                }
+                } */
+                auto oct = gravity::getGravityOctreeFromMasses(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution, masses);
                 timer.log();
             }
 

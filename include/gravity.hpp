@@ -30,6 +30,10 @@ namespace gravity {
         glm::vec3 center;
         float extent;
     };
+    struct gravity_cube {
+        gravity::cube c;
+        std::array<glm::vec3, 8> g;
+    };
 
     std::vector<tube> getTubes(
             const std::vector<glm::vec3>& vertices,
@@ -42,6 +46,9 @@ namespace gravity {
 
     glm::vec3 getGravityFromTubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
     glm::vec3 getGravityFromMasses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point);
+
+    octree<gravity::gravity_cube>* getGravityOctreeFromMasses(
+            glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses);
 
     // hanno la stessa complessità, ma la versione con octree ha una
     std::vector<glm::vec3> getDiscreteSpace(glm::vec3 min, glm::vec3 max, int resolution);

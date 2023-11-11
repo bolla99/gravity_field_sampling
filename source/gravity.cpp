@@ -2,7 +2,7 @@
 // Created by Giovanni Bollati on 27/10/23.
 //
 
-#include "gravity.hpp";
+#include "gravity.hpp"
 #include "util.hpp"
 #include <iostream>
 #include <omp.h>
@@ -217,6 +217,66 @@ glm::vec3 gravity::getGravityFromMasses(const std::vector<gravity::mass>& masses
     return gravity;
 }
 
+octree<gravity::gravity_cube>* gravity::getGravityOctreeFromMasses(
+        glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses) {
+    // get bounding box
+    auto _cube = util::getBox(min, max);
+    glm::vec3 center{_cube[0], _cube[1], _cube[2]};
+    auto edge_length = _cube[3];
+    min = center - (edge_length / 2.0f);
+
+    // set octree root element
+    gravity::gravity_cube gc = {{center, edge_length / 2.0f }, std::array<glm::vec3, 8>{}};
+    gc.g[0] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z});
+    gc.g[1] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+    gc.g[2] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+    gc.g[3] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+    gc.g[4] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+    gc.g[5] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+    gc.g[6] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+    gc.g[7] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+
+    // f function
+    auto f = [masses](gravity::gravity_cube gc)->std::array<gravity::gravity_cube, 8> {
+        float new_edge = gc.c.extent / 2.0f;
+        glm::vec3 min = {gc.c.center.x - new_edge, gc.c.center.y - new_edge, gc.c.center.z - new_edge};
+        std::array<gravity::cube, 8> new_cubes{};
+        new_cubes[0] = {{min.x, min.y, min.z}, new_edge};
+        new_cubes[1] = {{min.x + gc.c.extent, min.y, min.z}, new_edge};
+        new_cubes[2] = {{min.x, min.y + gc.c.extent, min.z}, new_edge};
+        new_cubes[3] = {{min.x + gc.c.extent, min.y + gc.c.extent, min.z}, new_edge};
+        new_cubes[4] = {{min.x, min.y, min.z + gc.c.extent}, new_edge};
+        new_cubes[5] = {{min.x + gc.c.extent, min.y, min.z + gc.c.extent}, new_edge};
+        new_cubes[6] = {{min.x, min.y + gc.c.extent, min.z + gc.c.extent}, new_edge};
+        new_cubes[7] = {{min.x + gc.c.extent, min.y + gc.c.extent, min.z + gc.c.extent}, new_edge};
+        std::array<gravity::gravity_cube, 8> new_gravity_cubes{};
+        for(int i = 0; i < 8; i++) {
+            new_gravity_cubes[i].c = new_cubes[i];
+            auto edge_length = new_gravity_cubes[i].c.extent;
+            min = new_gravity_cubes[i].c.center - edge_length / 2.0f;
+            new_gravity_cubes[i].g[0] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z});
+            new_gravity_cubes[i].g[1] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+            new_gravity_cubes[i].g[2] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[3] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[4] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[5] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[6] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+            new_gravity_cubes[i].g[7] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+        }
+        return new_gravity_cubes;
+    };
+
+    // condition
+    auto condition = [](std::array<gravity::gravity_cube, 8>)->bool {
+        return true;
+    };
+
+    // create octree and call execute to construct it
+    auto root = new octree<gravity::gravity_cube>(gc);
+    root->execute(resolution, gc, f, condition);
+    return root;
+}
+
 std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, int resolution) {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 center = (max + min) * 0.5f;
@@ -228,7 +288,6 @@ std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, i
     if (z_width > max_extent) max_extent = z_width;
 
     min = center - (max_extent / 2.0f);
-    max = center + (max_extent / 2.0f);
 
     float unit = max_extent / (float)resolution;
 
@@ -244,19 +303,9 @@ std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, i
 }
 
 octree<gravity::cube>* gravity::getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec3 max, int resolution) {
-    omp_set_num_threads(omp_get_max_threads());
-    glm::vec3 center = (max + min) * 0.5f;
-    float x_width = max.x - min.x;
-    float y_width = max.y - min.y;
-    float z_width = max.z - min.z;
-    float max_extent = x_width;
-    if (y_width > max_extent) max_extent = y_width;
-    if (z_width > max_extent) max_extent = z_width;
+    auto _cube = util::getBox(min, max);
 
-    min = center - (max_extent / 2.0f);
-    max = center + (max_extent / 2.0f);
-
-    gravity::cube cube = {center, max_extent / 2.0f };
+    gravity::cube cube = {{_cube[0], _cube[1], _cube[2]}, _cube[3] / 2.0f };
     auto f = [](gravity::cube c)->std::array<gravity::cube, 8>{
         float new_extent = c.extent / 2.0f;
         glm::vec3 min = {c.center.x - new_extent, c.center.y - new_extent, c.center.z - new_extent};
