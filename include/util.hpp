@@ -57,6 +57,10 @@ namespace util {
     // allows to select a bounding box of a point from a 3d space vector
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
 
+    inline int from_3d_indices_to_1d(std::array<int, 3> indices, int resolution) {
+        return indices[0] * resolution * resolution + indices[1] * resolution + indices[2];
+    }
+
     // cube geometry
     // pre requisite: p is inside cube
     std::array<float, 8> trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
