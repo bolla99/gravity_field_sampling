@@ -8,7 +8,7 @@
 #include <omp.h>
 #include <SDL.h>
 
-std::vector<gravity::tube> gravity::getTubes(
+std::vector<gravity::tube> gravity::get_tubes(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         int resolution) {
@@ -18,9 +18,9 @@ std::vector<gravity::tube> gravity::getTubes(
     Uint64 start = SDL_GetTicks64();
 
     // FIND XY PLANE
-    glm::vec3 min = util::getMin(vertices);
+    glm::vec3 min = util::get_min(vertices);
     min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::getMax(vertices);
+    glm::vec3 max = util::get_max(vertices);
 
     max.x -= 0.0001; max.y -= 0.0001;
     min.z = min.z - 10;
@@ -45,7 +45,7 @@ std::vector<gravity::tube> gravity::getTubes(
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(vertices, faces, r.origin, r.dir);
+            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -60,7 +60,7 @@ std::vector<gravity::tube> gravity::getTubes(
 }
 
 
-std::vector<gravity::mass> gravity::getMasses(
+std::vector<gravity::mass> gravity::get_masses(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         int resolution) {
@@ -71,9 +71,9 @@ std::vector<gravity::mass> gravity::getMasses(
     Uint64 start = SDL_GetTicks64();
 
     // FIND XY PLANE
-    glm::vec3 min = util::getMin(vertices);
+    glm::vec3 min = util::get_min(vertices);
     min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::getMax(vertices);
+    glm::vec3 max = util::get_max(vertices);
 
     max.x -= 0.0001; max.y -= 0.0001;
     min.z = min.z - 10;
@@ -99,7 +99,7 @@ std::vector<gravity::mass> gravity::getMasses(
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(vertices, faces, r.origin, r.dir);
+            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -128,7 +128,7 @@ std::vector<gravity::mass> gravity::getMasses(
     return volumes;
 }
 
-glm::vec3 gravity::getGravityFromTubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point) {
+glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point) {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
@@ -137,9 +137,9 @@ glm::vec3 gravity::getGravityFromTubes(const std::vector<glm::vec3>& vertices, i
 
     Uint64 start = SDL_GetTicks64();
     // FIND XY PLANE
-    glm::vec3 min = util::getMin(vertices);
+    glm::vec3 min = util::get_min(vertices);
     min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::getMax(vertices);
+    glm::vec3 max = util::get_max(vertices);
 
     max.x -= 0.0001; max.y -= 0.0001;
     min.z = min.z - 10;
@@ -193,7 +193,7 @@ glm::vec3 gravity::getGravityFromTubes(const std::vector<glm::vec3>& vertices, i
     return gravity;
 }
 
-glm::vec3 gravity::getGravityFromMasses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point) {
+glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point) {
     Uint64 start = SDL_GetTicks64();
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
@@ -217,7 +217,7 @@ glm::vec3 gravity::getGravityFromMasses(const std::vector<gravity::mass>& masses
     return gravity;
 }
 
-glm::vec3 gravity::getGravityFrom1DPreComputedVector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution) {
+glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution) {
     // get indices of bounding box
     auto indices = util::get_box_indices(min, range, resolution, point);
 
@@ -232,7 +232,7 @@ glm::vec3 gravity::getGravityFrom1DPreComputedVector(glm::vec3 point, const std:
         space_cube[i] = space[indices_1d[i]];
     }
     // obtain trilinear coordinates for interpolation
-    auto trilinear_coordinates = util::trilinearCoordinates(point, space_cube);
+    auto trilinear_coordinates = util::trilinear_coordinates(point, space_cube);
     glm::vec3 output_gravity{};
     // interpolation
     for(int i = 0; i < 8; i++) {
@@ -241,24 +241,24 @@ glm::vec3 gravity::getGravityFrom1DPreComputedVector(glm::vec3 point, const std:
     return output_gravity;
 }
 
-octree<gravity::gravity_cube>* gravity::getGravityOctreeFromMasses(
+octree<gravity::gravity_cube>* gravity::get_gravity_octree_from_masses(
         glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses) {
     // get bounding box
-    auto _cube = util::getBox(min, max);
+    auto _cube = util::get_box(min, max);
     glm::vec3 center{_cube[0], _cube[1], _cube[2]};
     auto edge_length = _cube[3];
     min = center - (edge_length / 2.0f);
 
     // set octree root element
     gravity::gravity_cube gc = {{center, edge_length / 2.0f }, std::array<glm::vec3, 8>{}};
-    gc.g[0] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z});
-    gc.g[1] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z});
-    gc.g[2] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z});
-    gc.g[3] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
-    gc.g[4] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z + edge_length});
-    gc.g[5] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
-    gc.g[6] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
-    gc.g[7] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+    gc.g[0] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z});
+    gc.g[1] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+    gc.g[2] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+    gc.g[3] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+    gc.g[4] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+    gc.g[5] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+    gc.g[6] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+    gc.g[7] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
 
     // f function
     auto f = [masses](gravity::gravity_cube gc)->std::array<gravity::gravity_cube, 8> {
@@ -278,14 +278,14 @@ octree<gravity::gravity_cube>* gravity::getGravityOctreeFromMasses(
             new_gravity_cubes[i].c = new_cubes[i];
             auto edge_length = new_gravity_cubes[i].c.extent;
             min = new_gravity_cubes[i].c.center - edge_length / 2.0f;
-            new_gravity_cubes[i].g[0] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z});
-            new_gravity_cubes[i].g[1] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z});
-            new_gravity_cubes[i].g[2] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z});
-            new_gravity_cubes[i].g[3] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
-            new_gravity_cubes[i].g[4] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y, min.z + edge_length});
-            new_gravity_cubes[i].g[5] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
-            new_gravity_cubes[i].g[6] = gravity::getGravityFromMasses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
-            new_gravity_cubes[i].g[7] = gravity::getGravityFromMasses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+            new_gravity_cubes[i].g[0] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z});
+            new_gravity_cubes[i].g[1] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+            new_gravity_cubes[i].g[2] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[3] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[4] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[5] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[6] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+            new_gravity_cubes[i].g[7] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
         }
         return new_gravity_cubes;
     };
@@ -301,7 +301,7 @@ octree<gravity::gravity_cube>* gravity::getGravityOctreeFromMasses(
     return root;
 }
 
-std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, int resolution) {
+std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution) {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 center = (max + min) * 0.5f;
     float x_width = max.x - min.x;
@@ -326,8 +326,8 @@ std::vector<glm::vec3> gravity::getDiscreteSpace(glm::vec3 min, glm::vec3 max, i
     return v;
 }
 
-octree<gravity::cube>* gravity::getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec3 max, int resolution) {
-    auto _cube = util::getBox(min, max);
+octree<gravity::cube>* gravity::get_discrete_space_as_octree(glm::vec3 min, glm::vec3 max, int resolution) {
+    auto _cube = util::get_box(min, max);
 
     gravity::cube cube = {{_cube[0], _cube[1], _cube[2]}, _cube[3] / 2.0f };
     auto f = [](gravity::cube c)->std::array<gravity::cube, 8>{
@@ -352,7 +352,7 @@ octree<gravity::cube>* gravity::getDiscreteSpaceAsOctree(glm::vec3 min, glm::vec
     return root;
 }
 
-glm::vec3 gravity::getGravityRT(
+glm::vec3 gravity::get_gravity_RT(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         int resolution, glm::vec3 point) {
@@ -364,9 +364,9 @@ glm::vec3 gravity::getGravityRT(
 
     Uint64 start = SDL_GetTicks64();
     // FIND XY PLANE
-    glm::vec3 min = util::getMin(vertices);
+    glm::vec3 min = util::get_min(vertices);
     min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::getMax(vertices);
+    glm::vec3 max = util::get_max(vertices);
 
     max.x -= 0.0001; max.y -= 0.0001;
     min.z = min.z - 10.f;
@@ -400,7 +400,7 @@ glm::vec3 gravity::getGravityRT(
             // RAY
             gravity::ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = util::rayMeshIntersectionsOptimized(vertices, faces, r.origin, r.dir);
+            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -437,7 +437,7 @@ glm::vec3 gravity::getGravityRT(
     return gravity;
 }
 
-glm::vec3 gravity::getGravityFromTetrahedrons(
+glm::vec3 gravity::get_gravity_from_tetrahedrons(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) {
@@ -448,15 +448,15 @@ glm::vec3 gravity::getGravityFromTetrahedrons(
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 tetrahedrons_vertex};
-        float mass = util::tetrahedronVolume(t.b1, t.b2, t.b3, t.v);
-        glm::vec3 barycentre = util::tetrahedronBarycentre(t.b1, t.b2, t.b3, t.v);
+        float mass = util::tetrahedron_volume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedron_barycentre(t.b1, t.b2, t.b3, t.v);
         float distance = glm::length(p - barycentre);
         gravity = gravity - ((p - barycentre)*mass) / (float)pow(distance, 3);
     }
     return gravity;
 }
 
-glm::vec3 gravity::getGravityFromTetrahedronsCorrected(
+glm::vec3 gravity::get_gravity_from_tetrahedrons_corrected(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) {
@@ -467,8 +467,8 @@ glm::vec3 gravity::getGravityFromTetrahedronsCorrected(
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 tetrahedrons_vertex};
-        float mass = util::tetrahedronVolume(t.b1, t.b2, t.b3, t.v);
-        glm::vec3 barycentre = util::tetrahedronBarycentre(t.b1, t.b2, t.b3, t.v);
+        float mass = util::tetrahedron_volume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedron_barycentre(t.b1, t.b2, t.b3, t.v);
         gravity = gravity + ((barycentre - p)*mass) / (float)pow(glm::length(barycentre - p), 3);
     }
     return gravity;
@@ -485,7 +485,7 @@ float gravity::volume(
                 vertices[face.y - 1],
                 vertices[face.z - 1],
                 t};
-        volume += util::tetrahedronVolume(tetrahedron.b1, tetrahedron.b2, tetrahedron.b3, tetrahedron.v) * 10;
+        volume += util::tetrahedron_volume(tetrahedron.b1, tetrahedron.b2, tetrahedron.b3, tetrahedron.v) * 10;
     }
     return volume;
 }

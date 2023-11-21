@@ -47,14 +47,14 @@ struct Color {
     float r, g, b;
 };
 
-class Mesh {
+class mesh {
 
 public:
-    Mesh() : vertices(), colors(), UVs(), normals(), faces(), faces_uv(), faces_normals(), attributes(), elements() {}
+    mesh() : vertices(), colors(), UVs(), normals(), faces(), faces_uv(), faces_normals(), attributes(), elements() {}
 
     // delete VAO, VBO and EBO if they have been created after object creation
     // no more cleanup needed
-    ~Mesh() {
+    ~mesh() {
         if(VAO != 0) glDeleteVertexArrays(1, &VAO);
         if(VBO != 0) glDeleteBuffers(1, &VBO);
         if(EBO != 0) glDeleteBuffers(1, &EBO);
@@ -62,38 +62,38 @@ public:
 
     // IO
     // fill every data structures except for rendering wise vectors
-    void loadFromObj(const std::string& path);
+    void load_from_obj(const std::string& path);
 
     // to be modified
-    void writeOnDiskAsObj(const std::string& path);
+    void write_on_disk_as_obj(const std::string& path);
 
     // requires a shader with location 0 for position, 1 for color and 2 for uvs;
-    unsigned int getVAO();
+    unsigned int get_VAO();
 
 
     // CHECKERS
-    [[nodiscard]] bool isLoaded() const;
-    [[nodiscard]] bool hasColor() const;
-    [[nodiscard]] bool hasUVs() const;
-    [[nodiscard]] bool hasNormals() const;
+    [[nodiscard]] bool is_loaded() const;
+    [[nodiscard]] bool has_color() const;
+    [[nodiscard]] bool has_UVs() const;
+    [[nodiscard]] bool has_normals() const;
 
-    [[nodiscard]] bool isInside(const glm::vec3& v) const;
+    [[nodiscard]] bool is_inside(const glm::vec3& v) const;
 
     // GETTERS
-    [[nodiscard]] const std::vector<glm::vec3>& getVertices() const;
-    [[nodiscard]] const std::vector<Color>& getColors() const;
-    [[nodiscard]] const std::vector<UV>& getUVs() const;
-    [[nodiscard]] const std::vector<glm::vec3>& getNormals() const;
+    [[nodiscard]] const std::vector<glm::vec3>& get_vertices() const;
+    [[nodiscard]] const std::vector<Color>& get_colors() const;
+    [[nodiscard]] const std::vector<UV>& get_UVs() const;
+    [[nodiscard]] const std::vector<glm::vec3>& get_normals() const;
 
-    [[nodiscard]] const std::vector<Face>& getFaces() const;
-    [[nodiscard]] const std::vector<Face>& getFacesUV() const;
-    [[nodiscard]] const std::vector<Face>& getFacesNormals() const;
+    [[nodiscard]] const std::vector<Face>& get_faces() const;
+    [[nodiscard]] const std::vector<Face>& get_faces_UV() const;
+    [[nodiscard]] const std::vector<Face>& get_faces_normals() const;
 
-    [[nodiscard]] const std::vector<float>& getAttributes() const;
-    [[nodiscard]] const std::vector<int>& getElements() const;
+    [[nodiscard]] const std::vector<float>& get_attributes() const;
+    [[nodiscard]] const std::vector<int>& get_elements() const;
 
     // ABSTRACTION FUNCTION
-    std::string toString();
+    std::string to_string();
     
 private:
     // REPRESENTATION
@@ -122,10 +122,10 @@ private:
     // while parsing it makes triangular any non-triangular face by fan method; it fills faces vectors
     // addIndices can be called only by load function in order to fill faces vectors with a single face line parsed.
     // CALLED BY LOAD FUNCTION; WHICH IS PUBLIC API
-    void addIndices(std::vector<std::string>& indices);
+    void add_indices(std::vector<std::string>& indices);
 
     // fill attributes and elements data structure for rendering; CALLED BY LOAD FUNCTION, WHICH IS PUBLIC API
-    void setUpForRendering();
+    void set_up_for_rendering();
 
     // CLEAR: clears every and vector and delete buffers for rendering; CALLED BY LOAD FUNCTION, WHICH IS PUBLIC API
     void clear();

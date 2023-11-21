@@ -125,22 +125,22 @@ int main(int argv, char** args) {
     glDepthFunc(GL_LESS); // GL_LESS: minor z passes
 
     // SHADER LOADING
-    Shader shader = Shader("../shaders/vs.glsl", "../shaders/fs.glsl");
-    Shader tetra_shader = Shader("../shaders/vs_tetra.glsl", "../shaders/fs_tetra.glsl");
+    shader shdr = shader("../shaders/vs.glsl", "../shaders/fs.glsl");
+    shader tetra_shdr = shader("../shaders/vs_tetra.glsl", "../shaders/fs_tetra.glsl");
 
 
     // CREATE MESH FILE BROWSER
-    ImGui::FileBrowser meshBrowser;
-    meshBrowser.SetTitle("mesh .obj browser");
-    meshBrowser.SetTypeFilters({".obj"});
+    ImGui::FileBrowser mesh_browser;
+    mesh_browser.SetTitle("mesh .obj browser");
+    mesh_browser.SetTypeFilters({".obj"});
     // CREATE TEXTURE FILE BROWSER
-    ImGui::FileBrowser textureBrowser;
-    textureBrowser.SetTitle("texture browser");
-    textureBrowser.SetTypeFilters({".png", ".jpg", ".jpeg"});
+    ImGui::FileBrowser texture_browser;
+    texture_browser.SetTitle("texture browser");
+    texture_browser.SetTypeFilters({".png", ".jpg", ".jpeg"});
 
     // CREATE MESH OBJECTS
-    Mesh mesh = Mesh();
-    Mesh arrow = Mesh();
+    mesh msh = mesh();
+    mesh arrow = mesh();
 
     // CREATE TEXTURE AND BIND
     unsigned int texture;
@@ -227,7 +227,7 @@ int main(int argv, char** args) {
     glGenBuffers(1, &rayVBO);
     glGenVertexArrays(1, &rayVAO);
     glBindVertexArray(rayVAO);
-    tetra_shader.use();
+    tetra_shdr.use();
     glBindBuffer(GL_ARRAY_BUFFER, rayVBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
@@ -243,7 +243,7 @@ int main(int argv, char** args) {
         // ******************************************************** //
 
         // PROJECTION MATRIX
-        glm::mat4 projectionMatrix = glm::perspective(
+        glm::mat4 projection_matrix = glm::perspective(
                 glm::radians(45.0f),
                 io.DisplaySize.x / io.DisplaySize.y,
                 1.f,
@@ -251,51 +251,51 @@ int main(int argv, char** args) {
                 );
 
         // VIEW MATRIX
-        glm::mat4 camTranslation = glm::translate(glm::mat4(1.f), cam_position);
+        glm::mat4 cam_translation = glm::translate(glm::mat4(1.f), cam_position);
         glm::quat quatY = {cos(h_cam_angle/2.f), 0.f, sin(h_cam_angle/2.f), 0.f};
         glm::quat quatX = glm::quat(cos(v_cam_angle/2.f), sin(v_cam_angle/2.f)*(glm::toMat4(quatY)*glm::vec4(-1.f, 0.f, 0.f, 0.f)));
         glm::quat quatXY = quatX * quatY;
 
-        glm::mat4 viewMatrix = glm::inverse(glm::toMat4(quatXY) * camTranslation);
+        glm::mat4 view_matrix = glm::inverse(glm::toMat4(quatXY) * cam_translation);
 
-        glm::vec4 camPosition4 = glm::toMat4(quatXY) * camTranslation * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        glm::vec3 cameraPosition3 = glm::vec3{camPosition4.x, camPosition4.y, camPosition4.z};
+        glm::vec4 cam_position4 = glm::toMat4(quatXY) * cam_translation * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glm::vec3 camera_position3 = glm::vec3{cam_position4.x, cam_position4.y, cam_position4.z};
 
         // UPDATE SHADER CAMERA POSITION VALUE FOR SPECULAR LIGHT
-        shader.use();
-        glUniform3fv(glGetUniformLocation(shader.programID, "viewerPosition"), 1, glm::value_ptr(cameraPosition3));
+        shdr.use();
+        glUniform3fv(glGetUniformLocation(shdr.programID, "viewerPosition"), 1, glm::value_ptr(camera_position3));
 
         // MODEL MATRIX
-        glm::mat4 modelTranslation = glm::translate(glm::mat4(1.f), {position[0], position[1], position[2]});
-        glm::mat4 modelRotationX = glm::rotate(glm::mat4(1.f), rotation[0], {1.f, 0.f, 0.f});
-        glm::mat4 modelRotationY = glm::rotate(glm::mat4(1.f), rotation[1], {0.f, 1.f, 0.f});
-        glm::mat4 modelRotationZ = glm::rotate(glm::mat4(1.f), rotation[2], {0.f, 0.f, 1.f});
-        glm::mat4 modelScale = glm::scale(glm::mat4(1.f), glm::vec3{scale});
-        glm::mat4 modelMatrix = modelScale * modelTranslation * modelRotationZ * modelRotationY * modelRotationX;
+        glm::mat4 model_translation = glm::translate(glm::mat4(1.f), {position[0], position[1], position[2]});
+        glm::mat4 model_rotation_x = glm::rotate(glm::mat4(1.f), rotation[0], {1.f, 0.f, 0.f});
+        glm::mat4 model_rotation_y = glm::rotate(glm::mat4(1.f), rotation[1], {0.f, 1.f, 0.f});
+        glm::mat4 model_rotation_z = glm::rotate(glm::mat4(1.f), rotation[2], {0.f, 0.f, 1.f});
+        glm::mat4 model_scale = glm::scale(glm::mat4(1.f), glm::vec3{scale});
+        glm::mat4 model_matrix = model_scale * model_translation * model_rotation_z * model_rotation_y * model_rotation_x;
 
-        glm::mat4 arrowModelMatrix = glm::translate(glm::mat4(1.f), glm::make_vec3(potential_point))
-                * glm::toMat4(util::rotationBetweenVectors({0.f, 0.f, -1.f}, glm::normalize(gravity)))
+        glm::mat4 arrow_model_matrix = glm::translate(glm::mat4(1.f), glm::make_vec3(potential_point))
+                * glm::toMat4(util::rotation_between_vectors({0.f, 0.f, -1.f}, glm::normalize(gravity)))
                 * glm::scale(glm::mat4(1.f), {glm::length(gravity) / 100, glm::length(gravity) / 100, glm::length(gravity) / 100});
 
         // UPDATE SHADERS
 
         // matrices parameters
-        shader.use();
-        glUniformMatrix4fv(glGetUniformLocation(shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(viewMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-        tetra_shader.use();
-        glUniformMatrix4fv(glGetUniformLocation(tetra_shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(tetra_shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(viewMatrix));
+        shdr.use();
+        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(model_matrix));
+        tetra_shdr.use();
+        glUniformMatrix4fv(glGetUniformLocation(tetra_shdr.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(tetra_shdr.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
 
         // light parameters
-        shader.use();
-        glUniform1f(glGetUniformLocation(shader.programID, "ambientLightIntensity"), ambient_intensity);
-        glUniform3fv(glGetUniformLocation(shader.programID, "ambientLightColor"), 1, ambient_color);
-        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightColor"), 1, diffuse_color);
-        glUniform3fv(glGetUniformLocation(shader.programID, "diffuseLightPosition"), 1, diffuse_position);
-        glUniform1f(glGetUniformLocation(shader.programID, "specularStrenght"), specular_strength);
-        glUniform1i(glGetUniformLocation(shader.programID, "shininess"), shininess);
+        shdr.use();
+        glUniform1f(glGetUniformLocation(shdr.programID, "ambientLightIntensity"), ambient_intensity);
+        glUniform3fv(glGetUniformLocation(shdr.programID, "ambientLightColor"), 1, ambient_color);
+        glUniform3fv(glGetUniformLocation(shdr.programID, "diffuseLightColor"), 1, diffuse_color);
+        glUniform3fv(glGetUniformLocation(shdr.programID, "diffuseLightPosition"), 1, diffuse_position);
+        glUniform1f(glGetUniformLocation(shdr.programID, "specularStrenght"), specular_strength);
+        glUniform1i(glGetUniformLocation(shdr.programID, "shininess"), shininess);
 
 
           // ******************************************************* //
@@ -309,11 +309,11 @@ int main(int argv, char** args) {
          */
 
         // UPDATE MESH VOLUME
-        volume = gravity::volume(mesh.getVertices(), mesh.getFaces(), {tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
+        volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
 
         // UPDATE GRAVITY WITH TETRAHEDRONS (REAL TIME - done every frame)
-        gravity_with_tetrahedrons = gravity::getGravityFromTetrahedrons(mesh.getVertices(), mesh.getFaces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
-        gravity_with_tetrahedrons_corrected = gravity::getGravityFromTetrahedronsCorrected(mesh.getVertices(), mesh.getFaces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+        gravity_with_tetrahedrons = gravity::get_gravity_from_tetrahedrons(msh.get_vertices(), msh.get_faces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
+        gravity_with_tetrahedrons_corrected = gravity::get_gravity_from_tetrahedrons_corrected(msh.get_vertices(), msh.get_faces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
 
 
 
@@ -379,16 +379,16 @@ int main(int argv, char** args) {
 
         // MESH LOADING OPERATIONS
         ImGui::Spacing();ImGui::Spacing();ImGui::Spacing();
-        if(ImGui::Button("OPEN MESH")) meshBrowser.Open();
-        if(!mesh.getVertices().empty()) {
+        if(ImGui::Button("OPEN MESH")) mesh_browser.Open();
+        if(!msh.get_vertices().empty()) {
             ImGui::Text("Mesh loaded");
             if(ImGui::Button("Save Mesh")) {
-                mesh.writeOnDiskAsObj("saved_mesh.obj");
+                msh.write_on_disk_as_obj("saved_mesh.obj");
             }
         }
 
         // GRAVITY CALCULATION OPERATIONS
-        if(mesh.isLoaded()) {
+        if(msh.is_loaded()) {
             ImGui::Begin("GRAVITY PROCESSING");
             ImGui::InputFloat3("tetrahedron vertex", tetrahedron_vertex);
             ImGui::Text("Volume %f", volume);
@@ -396,17 +396,17 @@ int main(int argv, char** args) {
             ImGui::InputInt("ray gravity resolution", &gravity_resolution);
             ImGui::InputFloat3("potential point", potential_point);
             if(ImGui::Button("calculate gravity rt")) {
-                gravity = gravity::getGravityRT(mesh.getVertices(), mesh.getFaces(), gravity_resolution, glm::make_vec3(potential_point));
+                gravity = gravity::get_gravity_RT(msh.get_vertices(), msh.get_faces(), gravity_resolution, glm::make_vec3(potential_point));
             }
-            if(ImGui::Button("set up tubes")) { tubes = gravity::getTubes(mesh.getVertices(), mesh.getFaces(), gravity_resolution); }
+            if(ImGui::Button("set up tubes")) { tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with tubes")) {
-                gravity = gravity::getGravityFromTubes(mesh.getVertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
+                gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
             }
-            if(ImGui::Button("set up masses")) { masses = gravity::getMasses(mesh.getVertices(), mesh.getFaces(), gravity_resolution); }
+            if(ImGui::Button("set up masses")) { masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with masses")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::getGravityFromMasses(masses, 10, glm::make_vec3(potential_point));
+                gravity = gravity::get_gravity_from_masses(masses, 10, glm::make_vec3(potential_point));
                 t.log();
             }
             ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);
@@ -416,12 +416,12 @@ int main(int argv, char** args) {
                 Timer t{};
                 t.log();
                 auto masses_as_float = (float *) &masses.front();
-                std::vector<glm::vec3> space = gravity::getDiscreteSpace(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
+                std::vector<glm::vec3> space = gravity::get_discrete_space(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution);
                 for (int i = 0; i < 100; i++) {
                     std::cout << "{" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
                 }
                 auto space_as_float = (float *) (glm::value_ptr(space.front()));
-                float *output_gravity = GPUComputing::getGravityFromPointMassesAndDiscreteSpace(
+                float *output_gravity = GPUComputing::get_gravity_from_point_masses_and_discrete_space(
                         masses_as_float,
                         masses.size() * sizeof(gravity::mass),
                         space_as_float,
@@ -459,19 +459,19 @@ int main(int argv, char** args) {
                 for(int i = 0; i < 8; i++) {
                     std::cout << "trilinear coords " << i << ": " << trilinear_coords[i] << std::endl;
                 } */
-                auto oct = gravity::getGravityOctreeFromMasses(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution, masses);
+                auto oct = gravity::get_gravity_octree_from_masses(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution, masses);
                 timer.log();
             }
 
             if(ImGui::Button("compute gravity from gpu vector")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::getGravityFrom1DPreComputedVector(
+                gravity = gravity::get_gravity_from_1D_precomputed_vector(
                     glm::make_vec3(potential_point),
                     gpu_output_gravity,
                     discrete_space,
-                    util::getMin(mesh.getVertices()),
-                    util::getBox(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()))[3],
+                    util::get_min(msh.get_vertices()),
+                    util::get_box(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()))[3],
                     gravity_resolution
                     );
                 t.log();
@@ -502,14 +502,14 @@ int main(int argv, char** args) {
 
         // IMGUI TAB: TEXTURE OPERATIONS
         ImGui::Begin("Texture");
-        if(ImGui::Button("OPEN TEXTURE")) textureBrowser.Open();
+        if(ImGui::Button("OPEN TEXTURE")) texture_browser.Open();
         if(ImGui::Button("SET COLORMODE VERTEX COLOR")) {
-            shader.use();
-            glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 1);
+            shdr.use();
+            glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 1);
         }
         if(ImGui::Button("SET COLORMODE TEXTURE")) {
-            shader.use();
-            glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 0);
+            shdr.use();
+            glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 0);
         }
         if(ImGui::Button("RESET TO DEFAULT TEXTURE")) {
             unsigned char* data = new unsigned char[3];
@@ -550,36 +550,36 @@ int main(int argv, char** args) {
         ImGui::End();
 
         // DISPLAY FILE BROWSERS
-        meshBrowser.Display();
-        textureBrowser.Display();
+        mesh_browser.Display();
+        texture_browser.Display();
 
         // IF A MESH IS SELECTED WITH THE FILE BROWSER
-        if(meshBrowser.HasSelected())
+        if(mesh_browser.HasSelected())
         {
-            std::cout << "Selected filename" << meshBrowser.GetSelected().string() << std::endl;
+            std::cout << "Selected filename" << mesh_browser.GetSelected().string() << std::endl;
 
             // LOAD MESH
-            mesh.loadFromObj(meshBrowser.GetSelected().string());
+            msh.load_from_obj(mesh_browser.GetSelected().string());
 
             // UPDATE COLORMODE SHADER PARAMETER
-            if(mesh.hasColor()) {
-                shader.use();
-                glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 1);
+            if(msh.has_color()) {
+                shdr.use();
+                glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 1);
             } else {
-                shader.use();
-                glUniform1i(glGetUniformLocation(shader.programID, "colorMode"), 0);
+                shdr.use();
+                glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 0);
             }
-            meshBrowser.ClearSelected();
+            mesh_browser.ClearSelected();
 
             // LOAD ARROW MESH FOR GRAVITY DEBUG
-            arrow.loadFromObj("../resources/arrow.obj");
+            arrow.load_from_obj("../resources/arrow.obj");
         }
 
         // IF A TEXTURE IS SELECTED
-        if(textureBrowser.HasSelected()) {
+        if(texture_browser.HasSelected()) {
             int width, height, nrChannels;
             unsigned char *data = stbi_load(
-                    reinterpret_cast<const char *>(textureBrowser.GetSelected().c_str()),
+                    reinterpret_cast<const char *>(texture_browser.GetSelected().c_str()),
                     &width,
                     &height,
                     &nrChannels,
@@ -588,7 +588,7 @@ int main(int argv, char** args) {
             if(data) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
             } else { std::cout << "faild to load texture"; }
-            textureBrowser.ClearSelected();
+            texture_browser.ClearSelected();
             stbi_image_free(data);
         }
 
@@ -608,22 +608,22 @@ int main(int argv, char** args) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 
-        if(!mesh.getVertices().empty()) {
+        if(!msh.get_vertices().empty()) {
             // pick shader
-            shader.use();
+            shdr.use();
             // bind VERTEX ARRAY OBJECT
-            glBindVertexArray(mesh.getVAO());
+            glBindVertexArray(msh.get_VAO());
             // DRAW
-            glDrawElements(GL_TRIANGLES, (int)mesh.getElements().size(), GL_UNSIGNED_INT, nullptr);
+            glDrawElements(GL_TRIANGLES, (int)msh.get_elements().size(), GL_UNSIGNED_INT, nullptr);
 
-            glBindVertexArray(arrow.getVAO());
+            glBindVertexArray(arrow.get_VAO());
             // update model matrix
-            glUniformMatrix4fv(glGetUniformLocation(shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrowModelMatrix));
-            glDrawElements(GL_TRIANGLES, (int)arrow.getElements().size(), GL_UNSIGNED_INT, nullptr);
+            glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrow_model_matrix));
+            glDrawElements(GL_TRIANGLES, (int)arrow.get_elements().size(), GL_UNSIGNED_INT, nullptr);
         }
 
         // RAY
-        tetra_shader.use();
+        tetra_shdr.use();
 
         // make data (two points -> line)
         float ray_data[6] = {origin[0], origin[1], origin[2],
@@ -646,11 +646,11 @@ int main(int argv, char** args) {
                 0.f, 0.f, 0.f, 0.f, 0.f, 10.f
         };
         glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float), axis, GL_DYNAMIC_DRAW);
-        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0.8, 0, 0, 1);
+        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0.8, 0, 0, 1);
         glDrawArrays(GL_LINES, 0, 2);
-        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0, 0.8, 0, 1);
+        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0, 0.8, 0, 1);
         glDrawArrays(GL_LINES, 2, 2);
-        glUniform4f(glGetUniformLocation(tetra_shader.programID, "color"), 0, 0, 0.8, 1);
+        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0, 0, 0.8, 1);
         glDrawArrays(GL_LINES, 4, 2);
 
         // SWAP WINDOWS

@@ -14,7 +14,7 @@
 #include <cstring>
 #include <iostream>
 
-float* GPUComputing::getGravityFromPointMassesAndDiscreteSpace(const float* pointMasses, int massesSize, const float* discreteSpace, int spaceSize) {
+float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const float* pointMasses, int massesSize, const float* discreteSpace, int spaceSize) {
     std::ifstream file;
     file.open("../shaders/add.metal", std::ios::in);
     std::stringstream ss;

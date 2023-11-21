@@ -18,22 +18,22 @@
 
 #include <SDL_opengl.h>
 
-class Shader {
+class shader {
 public:
     unsigned int programID;
 
     // constructor
-    Shader(const std::string& vertexPath, const std::string& fragmentPath);
+    shader(const std::string& vertex_path, const std::string& fragment_path);
 
    void use() const;
 
     // get uniform location
-    int getUniformLocation(const std::string& name) const;
+    int get_uniform_location(const std::string& name) const;
 
     // load shader source and checkers for compilation and linkage
-    static std::string loadShaderSource(const std::string& path);
-    static bool checkShaderCompilation(unsigned int shader);
-    static bool checkProgramLinkage(unsigned int program);
+    static std::string load_shader_source(const std::string& path);
+    static bool check_shader_compilation(unsigned int shader);
+    static bool check_program_linkage(unsigned int program);
 };
 
 #endif //GL_TEST_PROJECT_SHADER_HPP

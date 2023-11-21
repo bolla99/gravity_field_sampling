@@ -5,7 +5,7 @@
 #include <GPUComputing.hpp>
 #include <iostream>
 
-float* GPUComputing::getGravityFromPointMassesAndDiscreteSpace(
+float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(
         const float* pointMasses, int massesSize,
         const float* discreteSpace, int spaceSize) {
 

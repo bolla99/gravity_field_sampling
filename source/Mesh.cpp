@@ -20,21 +20,20 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <stack>
 #include <fstream>
 
 // parallel processing
 #include <omp.h>
 
 // SDL
-#import <SDL.h>
+#include <SDL.h>
 #include <SDL_opengl.h>
 
 // GLM
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
 
-void Mesh::loadFromObj(const std::string& path) {
+void mesh::load_from_obj(const std::string& path) {
     // reset mesh -> can be done on existing mesh
     clear();
     
@@ -93,42 +92,42 @@ void Mesh::loadFromObj(const std::string& path) {
                 std::string s;
                 if(stream >> s) indices.push_back(s);
             }
-            addIndices(indices);
+            add_indices(indices);
         }
     }
     // close obj file
     obj.close();
     std::cout << "mesh at path " << path << " successfully completed" << std::endl;
-    setUpForRendering();
+    set_up_for_rendering();
 }
 
 // TO BE ADAPTER TO NEW LOADING FEATURES ( UV )
-void Mesh::writeOnDiskAsObj(const std::string& path) {
+void mesh::write_on_disk_as_obj(const std::string& path) {
     std::ofstream file(path, std::ios::trunc);
-    file << toString();
+    file << to_string();
     file.close();
 }
 
 // TO BE ADAPTED
 // TO STRING
-[[maybe_unused]] std::string Mesh::toString() {
+[[maybe_unused]] std::string mesh::to_string() {
     std::stringstream stream;
     for(int i = 0; i < vertices.size(); i++) {
         stream << "v " + std::to_string(vertices[i].x) + " "
                 + std::to_string(vertices[i].y) + " "
                 + std::to_string(vertices[i].z);
-        if(hasColor())
+        if(has_color())
             stream << " " + std::to_string(colors[i].r)
                     + " " + std::to_string(colors[i].g)
                     + " " + std::to_string(colors[i].b);
         stream << std::endl;
     }
-    if(hasUVs()) {
+    if(has_UVs()) {
         for(auto & UV : UVs) {
             stream << "vt " + std::to_string(UV.x) + " " + std::to_string(UV.y) << std::endl;
         }
     }
-    if(hasNormals()) {
+    if(has_normals()) {
         for(auto & normal : normals) {
             stream << "vn " + std::to_string(normal.x)
                     + " " + std::to_string(normal.y)
@@ -140,9 +139,9 @@ void Mesh::writeOnDiskAsObj(const std::string& path) {
         std::string s;
         s = "";
         s += std::to_string(faces[i].x);
-        if(hasUVs()) s += "/" + std::to_string(faces_uv[i].x);
-        if(hasNormals()) {
-            s += "/"; if(!hasUVs()) s += "/";
+        if(has_UVs()) s += "/" + std::to_string(faces_uv[i].x);
+        if(has_normals()) {
+            s += "/"; if(!has_UVs()) s += "/";
             s += std::to_string(faces_normals[i].x);
         }
         s += " ";
@@ -150,9 +149,9 @@ void Mesh::writeOnDiskAsObj(const std::string& path) {
 
         s = "";
         s += std::to_string(faces[i].y);
-        if(hasUVs()) s += "/" + std::to_string(faces_uv[i].y);
-        if(hasNormals()) {
-            s += "/"; if(!hasUVs()) s += "/";
+        if(has_UVs()) s += "/" + std::to_string(faces_uv[i].y);
+        if(has_normals()) {
+            s += "/"; if(!has_UVs()) s += "/";
             s += std::to_string(faces_normals[i].y);
         }
         s += " ";
@@ -160,9 +159,9 @@ void Mesh::writeOnDiskAsObj(const std::string& path) {
 
         s = "";
         s += std::to_string(faces[i].z);
-        if(hasUVs()) s += "/" + std::to_string(faces_uv[i].z);
-        if(hasNormals()) {
-            s += "/"; if(!hasUVs()) s += "/";
+        if(has_UVs()) s += "/" + std::to_string(faces_uv[i].z);
+        if(has_normals()) {
+            s += "/"; if(!has_UVs()) s += "/";
             s += std::to_string(faces_normals[i].z);
         }
         s += " ";
@@ -172,7 +171,7 @@ void Mesh::writeOnDiskAsObj(const std::string& path) {
     return stream.str();
 }
 
-void Mesh::setUpForRendering() {
+void mesh::set_up_for_rendering() {
 
     int j = 0;
     for(int i = 0; i < faces.size(); i++) {
@@ -180,16 +179,16 @@ void Mesh::setUpForRendering() {
         attributes.push_back(vertices[faces[i].x - 1].x);
         attributes.push_back(vertices[faces[i].x - 1].y);
         attributes.push_back(vertices[faces[i].x - 1].z);
-        if(hasColor()) {
+        if(has_color()) {
             attributes.push_back(colors[faces[i].x - 1].r);
             attributes.push_back(colors[faces[i].x - 1].g);
             attributes.push_back(colors[faces[i].x - 1].b);
         }
-        if(hasUVs()) {
+        if(has_UVs()) {
             attributes.push_back(UVs[faces_uv[i].x - 1].x);
             attributes.push_back(UVs[faces_uv[i].x - 1].y);
         }
-        if(hasNormals()) {
+        if(has_normals()) {
             attributes.push_back(normals[faces_normals[i].x - 1].x);
             attributes.push_back(normals[faces_normals[i].x - 1].y);
             attributes.push_back(normals[faces_normals[i].x - 1].z);
@@ -199,16 +198,16 @@ void Mesh::setUpForRendering() {
         attributes.push_back(vertices[faces[i].y - 1].x);
         attributes.push_back(vertices[faces[i].y - 1].y);
         attributes.push_back(vertices[faces[i].y - 1].z);
-        if(hasColor()) {
+        if(has_color()) {
             attributes.push_back(colors[faces[i].y - 1].r);
             attributes.push_back(colors[faces[i].y - 1].g);
             attributes.push_back(colors[faces[i].y - 1].b);
         }
-        if(hasUVs()) {
+        if(has_UVs()) {
             attributes.push_back(UVs[faces_uv[i].y - 1].x);
             attributes.push_back(UVs[faces_uv[i].y - 1].y);
         }
-        if(hasNormals()) {
+        if(has_normals()) {
             attributes.push_back(normals[faces_normals[i].y - 1].x);
             attributes.push_back(normals[faces_normals[i].y - 1].y);
             attributes.push_back(normals[faces_normals[i].y - 1].z);
@@ -218,16 +217,16 @@ void Mesh::setUpForRendering() {
         attributes.push_back(vertices[faces[i].z - 1].x);
         attributes.push_back(vertices[faces[i].z - 1].y);
         attributes.push_back(vertices[faces[i].z - 1].z);
-        if(hasColor()) {
+        if(has_color()) {
             attributes.push_back(colors[faces[i].z - 1].r);
             attributes.push_back(colors[faces[i].z - 1].g);
             attributes.push_back(colors[faces[i].z - 1].b);
         }
-        if(hasUVs()) {
+        if(has_UVs()) {
             attributes.push_back(UVs[faces_uv[i].z - 1].x);
             attributes.push_back(UVs[faces_uv[i].z - 1].y);
         }
-        if(hasNormals()) {
+        if(has_normals()) {
             attributes.push_back(normals[faces_normals[i].z - 1].x);
             attributes.push_back(normals[faces_normals[i].z - 1].y);
             attributes.push_back(normals[faces_normals[i].z - 1].z);
@@ -237,7 +236,7 @@ void Mesh::setUpForRendering() {
     std::cout << "mesh rendering setup successfully complete" << std::endl;
 }
 
-unsigned int Mesh::getVAO() {
+unsigned int mesh::get_VAO() {
     if(VAO == 0) {
         // DECLARE BUFFERS
         glGenVertexArrays(1, &VAO);
@@ -286,7 +285,7 @@ unsigned int Mesh::getVAO() {
     return VAO;
 }
 
-void Mesh::addIndices(std::vector<std::string>& indices) {
+void mesh::add_indices(std::vector<std::string>& indices) {
     for(int i = 0; i < indices.size() - 2; i++) {
         // triangle
         Face face{};
@@ -316,41 +315,41 @@ void Mesh::addIndices(std::vector<std::string>& indices) {
         // uvs and normals checkers can be called since faces parsing comes after vertex parsing,
         // that's why uvs and normals vector are already filled
         faces.push_back(face);
-        if(hasUVs()) faces_uv.push_back(face_uv);
-        if(hasNormals()) faces_normals.push_back(face_normals);
+        if(has_UVs()) faces_uv.push_back(face_uv);
+        if(has_normals()) faces_normals.push_back(face_normals);
     }
 }
 
 // GETTERS
-const std::vector<glm::vec3>& Mesh::getVertices() const {
+const std::vector<glm::vec3>& mesh::get_vertices() const {
     return vertices;
 }
-const std::vector<Color>& Mesh::getColors() const {
+const std::vector<Color>& mesh::get_colors() const {
     return colors;
 }
-const std::vector<UV>& Mesh::getUVs() const {
+const std::vector<UV>& mesh::get_UVs() const {
     return UVs;
 }
-const std::vector<glm::vec3>& Mesh::getNormals() const {
+const std::vector<glm::vec3>& mesh::get_normals() const {
     return normals;
 }
-const std::vector<Face>& Mesh::getFaces() const {
+const std::vector<Face>& mesh::get_faces() const {
     return faces;
 }
-const std::vector<Face>& Mesh::getFacesUV() const {
+const std::vector<Face>& mesh::get_faces_UV() const {
     return faces_uv;
 }
-const std::vector<Face>& Mesh::getFacesNormals() const {
+const std::vector<Face>& mesh::get_faces_normals() const {
     return faces_normals;
 }
-const std::vector<float>& Mesh::getAttributes() const {
+const std::vector<float>& mesh::get_attributes() const {
     return attributes;
 }
-const std::vector<int>& Mesh::getElements() const {
+const std::vector<int>& mesh::get_elements() const {
     return elements;
 }
 
-void Mesh::clear() {
+void mesh::clear() {
     vertices.clear();
     colors.clear();
     UVs.clear();
@@ -371,15 +370,15 @@ void Mesh::clear() {
     EBO = 0;
 }
 
-bool Mesh::isLoaded() const { return !vertices.empty(); }
-bool Mesh::hasColor() const { return !colors.empty(); }
-bool Mesh::hasUVs() const { return !UVs.empty(); }
-bool Mesh::hasNormals() const { return !normals.empty(); }
+bool mesh::is_loaded() const { return !vertices.empty(); }
+bool mesh::has_color() const { return !colors.empty(); }
+bool mesh::has_UVs() const { return !UVs.empty(); }
+bool mesh::has_normals() const { return !normals.empty(); }
 
 // IS INSIDE CHECKER + HELPERS
-bool Mesh::isInside(const glm::vec3& v) const {
+bool mesh::is_inside(const glm::vec3& v) const {
     double start = omp_get_wtime();
-    float minDistance = util::pointTriangleDistance(
+    float minDistance = util::point_triangle_distance(
             v,
             vertices[faces[0].x],
             vertices[faces[0].y],
@@ -387,7 +386,7 @@ bool Mesh::isInside(const glm::vec3& v) const {
             );
 #pragma omp parallel for default(none) shared(minDistance, v)
     for(int i = 1; i < (int)faces.size(); i++) {
-        float distance = util::pointTriangleDistance(
+        float distance = util::point_triangle_distance(
                 v,
                 vertices[faces[i].x],
                 vertices[faces[i].y],
