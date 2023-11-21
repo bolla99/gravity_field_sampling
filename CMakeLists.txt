@@ -16,8 +16,8 @@ endif()
 
 add_executable(gl_test_project
 		source/main.cpp
-        source/Mesh.cpp
-		source/Shader.cpp
+        source/mesh.cpp
+		source/shader.cpp
 		source/stb_image.cpp
 		shaders/add.metal
         shaders/vs.glsl

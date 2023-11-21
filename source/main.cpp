@@ -14,9 +14,9 @@
 #endif
 
 // user defined types
-#include <Mesh.hpp>
+#include <mesh.hpp>
 #include <util.hpp>
-#include <Shader.hpp>
+#include <shader.hpp>
 #include <GPUComputing.hpp>
 #include <gravity.hpp>
 #include <timer.hpp>
