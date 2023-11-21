@@ -15,8 +15,8 @@
 // ********************************************************** //
 
 
-#ifndef Mesh_hpp
-#define Mesh_hpp
+#ifndef mesh_hpp
+#define mesh_hpp
 
 /* definition needed to activate gl functions
  * declared in sdl_opengl_glext.h,

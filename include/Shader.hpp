@@ -9,14 +9,11 @@
 #define GL_GLEXT_PROTOTYPES 1
 #endif
 
-#include <iostream>
 #include <fstream>
 
 #ifdef WIN32
 #include <GL/glew.h>
 #endif
-
-#include <SDL_opengl.h>
 
 class shader {
 public:
