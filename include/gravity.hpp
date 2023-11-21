@@ -47,6 +47,16 @@ namespace gravity {
     glm::vec3 getGravityFromTubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
     glm::vec3 getGravityFromMasses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point);
 
+    // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point
+    // space and gravity vector are meant to be precomputed during a non real-time phase, while
+    // this function is meant to be called in real-time by interpolating precomputed values and compute
+    // gravity for a given point;
+    // min is the min space vertex of the box of which gravity has been previoudly computed
+    // min, range and resolution are needed to find indices of the bounding box, then
+    // the spatial bounding box coordinates are retrived and used to interpolate the gravity values of each
+    // bounding box vertex;
+    glm::vec3 getGravityFrom1DPreComputedVector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution);
+
     octree<gravity::gravity_cube>* getGravityOctreeFromMasses(
             glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses);
 

@@ -217,6 +217,30 @@ glm::vec3 gravity::getGravityFromMasses(const std::vector<gravity::mass>& masses
     return gravity;
 }
 
+glm::vec3 gravity::getGravityFrom1DPreComputedVector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution) {
+    // get indices of bounding box
+    auto indices = util::get_box_indices(min, range, resolution, point);
+
+    // translate 3d indices to 1d indices
+    std::array<int, 8> indices_1d{};
+    for(int i = 0; i < 8; i++) {
+        indices_1d[i] = util::from_3d_indices_to_1d(indices[i], resolution);
+    }
+    // get space coordinates of bounding box
+    std::array<glm::vec3, 8> space_cube{};
+    for(int i = 0; i < 8; i++) {
+        space_cube[i] = space[indices_1d[i]];
+    }
+    // obtain trilinear coordinates for interpolation
+    auto trilinear_coordinates = util::trilinearCoordinates(point, space_cube);
+    glm::vec3 output_gravity{};
+    // interpolation
+    for(int i = 0; i < 8; i++) {
+        output_gravity += gravity[indices_1d[i]] * trilinear_coordinates[i];
+    }
+    return output_gravity;
+}
+
 octree<gravity::gravity_cube>* gravity::getGravityOctreeFromMasses(
         glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses) {
     // get bounding box
