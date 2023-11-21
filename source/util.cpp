@@ -7,31 +7,31 @@
 #include <cmath>
 #include <iostream>
 
-glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
+glm::quat util::rotation_between_vectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors
     glm::vec3 start_n = glm::normalize(start);
     glm::vec3 dest_n = glm::normalize(dest);
 
-    float cosTheta = dot(start_n, dest_n);
-    glm::vec3 rotationAxis;
+    float cos_theta = dot(start_n, dest_n);
+    glm::vec3 rotation_axis;
 
     // vectors are in opposite directions
-    if (cosTheta < -1 + 0.001f){
+    if (cos_theta < -1 + 0.001f){
         // arbitrary roation axis perpendicular to start
-        rotationAxis = cross(glm::vec3(0.0f, 0.0f, 1.0f), start);
+        rotation_axis = cross(glm::vec3(0.0f, 0.0f, 1.0f), start);
 
         // arbitrary was parallel to start, retry with another arbitrary axis
-        if (glm::length2(rotationAxis) < 0.01 )
-            rotationAxis = cross(glm::vec3(1.0f, 0.0f, 0.0f), start);
+        if (glm::length2(rotation_axis) < 0.01 )
+            rotation_axis = cross(glm::vec3(1.0f, 0.0f, 0.0f), start);
 
         // normalize rotation axis
-        rotationAxis = normalize(rotationAxis);
-        return glm::angleAxis(glm::radians(180.0f), rotationAxis);
+        rotation_axis = normalize(rotation_axis);
+        return glm::angleAxis(glm::radians(180.0f), rotation_axis);
     }
 
-    rotationAxis = cross(start, dest);
+    rotation_axis = cross(start, dest);
 
-    float s = sqrt( (1+cosTheta)*2 );
+    float s = sqrt( (1+cos_theta)*2 );
 
     // formula justified by rotationAxis length being sin(theta)
     // q[w, tx, ty, tz], w = cos(theta/2), t = sin(theta/2)
@@ -39,9 +39,9 @@ glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& 
 
     return {
             s * 0.5f,
-            rotationAxis.x * invs,
-            rotationAxis.y * invs,
-            rotationAxis.z * invs
+            rotation_axis.x * invs,
+            rotation_axis.y * invs,
+            rotation_axis.z * invs
     };
 }
 
@@ -59,7 +59,7 @@ glm::vec3 util::barycentric_coords(const glm::vec3& a, const glm::vec3& b, const
     return {u, v, w};
 }
 
-float util::pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2) {
+float util::point_edge_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2) {
     //std::cout << "Running point edge distance for point: " << point.toString() << " and edge: " << e1.toString() << " - " << e2.toString() << "\n";
     glm::vec3 e1e2 = e2 - e1;
     glm::vec3 e1point = point - e1;
@@ -73,17 +73,17 @@ float util::pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const
     return glm::length(point - (e2*pos + e1*(1-pos)));
 }
 
-float util::pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3) {
+float util::point_triangle_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3) {
     //std::cout << "Running point triangle distance for face with vertices: " << e1.toString() << e2.toString() << e3.toString() << "\n";
     glm::vec3 e12 = e2 - e1;
     glm::vec3 e13 = e3 - e1;
     glm::vec3 e1point = point - e1;
     glm::vec3 n = glm::cross(e12, e13);
-    float nMag2 = glm::length2(n);
+    float n_mag2 = glm::length2(n);
 
     // barycentric coordinates
-    float alpha = glm::dot(glm::cross(e12, e1point), n) / nMag2;
-    float beta = glm::dot(glm::cross(e1point, e13), n) / nMag2;
+    float alpha = glm::dot(glm::cross(e12, e1point), n) / n_mag2;
+    float beta = glm::dot(glm::cross(e1point, e13), n) / n_mag2;
     float gamma = 1 - alpha - beta;
 
     // point projected on trinangle plane
@@ -94,23 +94,23 @@ float util::pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, c
     if(semispace >= 0) semispace_sign = 1;
     if(semispace < 0) semispace_sign = -1;
     if(alpha >= 0 && beta >= 0 && gamma >= 0) return glm::length(point - pointProjected) * semispace_sign;
-    else if(alpha < 0) return pointEdgeDistance(point, e2, e3) * semispace_sign;
-    else if(beta < 0) return pointEdgeDistance(point, e1, e3) * semispace_sign;
-    else return pointEdgeDistance(point, e1, e2) * semispace_sign;
+    else if(alpha < 0) return point_edge_distance(point, e2, e3) * semispace_sign;
+    else if(beta < 0) return point_edge_distance(point, e1, e3) * semispace_sign;
+    else return point_edge_distance(point, e1, e2) * semispace_sign;
 }
 
-float util::tetrahedronVolume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v) {
+float util::tetrahedron_volume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v) {
     return glm::dot(glm::cross(b1 - b2, b3 - b2), v - b2) / 6.f;
 }
 
-glm::vec3 util::tetrahedronBarycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v) {
+glm::vec3 util::tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v) {
     return (b1 * (1.f/4.f))
            + (b2 * (1.f/4.f))
            + (b3 * (1.f/4.f))
            + (v * (1.f/4.f));
 }
 
-bool util::rayTriangleIntersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
+bool util::ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
     const float EPSILON = 0.0000001;
     glm::vec3 e1 = t2 - t1;
     glm::vec3 e2 = t3 - t1;
@@ -140,7 +140,7 @@ bool util::rayTriangleIntersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm:
     return true;
 }
 
-std::vector<glm::vec3> util::rayMeshIntersections(const std::vector<glm::vec3>& vertices,
+std::vector<glm::vec3> util::ray_mesh_intersections(const std::vector<glm::vec3>& vertices,
                                                   const std::vector<glm::vec<3, unsigned int>>& faces,
                                                   glm::vec3 ray_origin, glm::vec3 ray_dir
 ) {
@@ -149,7 +149,7 @@ std::vector<glm::vec3> util::rayMeshIntersections(const std::vector<glm::vec3>& 
     std::vector<float> parameters = {};
     float parameter;
     for(auto & face : faces) {
-        if(util::rayTriangleIntersection(ray_origin, ray_dir, vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], &parameter)) {
+        if(util::ray_triangle_intersection(ray_origin, ray_dir, vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], &parameter)) {
             parameters.push_back(parameter);
         }
     }
@@ -167,7 +167,7 @@ std::vector<glm::vec3> util::rayMeshIntersections(const std::vector<glm::vec3>& 
     }
     return intersections;
 }
-std::vector<glm::vec3> util::rayMeshIntersectionsOptimized(const std::vector<glm::vec3>& vertices,
+std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<glm::vec3>& vertices,
                                                            const std::vector<glm::vec<3, unsigned int>>& faces,
                                                            glm::vec3 ray_origin, glm::vec3 ray_dir
 ) {
@@ -191,7 +191,7 @@ std::vector<glm::vec3> util::rayMeshIntersectionsOptimized(const std::vector<glm
         if(t0.y < t0.x + Do && t1.y < t1.x + Do && t2.y < t2.x + Do) continue;
         if(t0.y > t0.x + Do && t1.y > t1.x + Do && t2.y > t2.x + Do) continue;
 
-        if(util::rayTriangleIntersection(ray_origin, ray_dir, t0, t1, t2, &parameter)) {
+        if(util::ray_triangle_intersection(ray_origin, ray_dir, t0, t1, t2, &parameter)) {
             parameters.push_back(parameter);
         }
     }
@@ -210,7 +210,7 @@ std::vector<glm::vec3> util::rayMeshIntersectionsOptimized(const std::vector<glm
     return intersections;
 }
 
-glm::vec3 util::getMin(const std::vector<glm::vec3>& vertices) {
+glm::vec3 util::get_min(const std::vector<glm::vec3>& vertices) {
     glm::vec3 min = vertices[0];
     for(int i = 1; i < vertices.size(); i++) {
         if(vertices[i].x < min.x) min.x = vertices[i].x;
@@ -219,7 +219,7 @@ glm::vec3 util::getMin(const std::vector<glm::vec3>& vertices) {
     }
     return min;
 }
-glm::vec3 util::getMax(const std::vector<glm::vec3>& vertices) {
+glm::vec3 util::get_max(const std::vector<glm::vec3>& vertices) {
     glm::vec3 max = vertices[0];
     for(int i = 1; i < vertices.size(); i++) {
         if(vertices[i].x > max.x) max.x = vertices[i].x;
@@ -249,8 +249,8 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     };
 }
 
-std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
-    std::cout << "is point inside cube? " << util::isInsideCube(p, cube);
+std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
+    std::cout << "is point inside cube? " << util::is_inside_cube(p, cube);
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
         volume_per_corner[i] = abs(cube[i].x - p.x)*abs(cube[i].y - p.y)*abs(cube[i].z - p.z);
@@ -269,7 +269,7 @@ std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::a
     return coords;
 }
 
-bool util::isInsideCube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
+bool util::is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
     return p.x >= cube[0].x && p.y >= cube[0].y && p.z >= cube[0].z &&
            p.x <= cube[7].x && p.y <= cube[7].y && p.z <= cube[7].z;
 }

@@ -13,37 +13,36 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/norm.hpp>
 
 namespace util {
-    glm::quat rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest);
+    glm::quat rotation_between_vectors(const glm::vec3& start, const glm::vec3& dest);
 
     // cramer rule used (Ax = b, x_i = det(A_i) / det(A), A_i = A with i-column replaced with b
     glm::vec3 barycentric_coords(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& p);
 
-    float pointEdgeDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
-    float pointTriangleDistance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
-    float tetrahedronVolume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
-    glm::vec3 tetrahedronBarycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+    float point_edge_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
+    float point_triangle_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
+    float tetrahedron_volume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+    glm::vec3 tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
 
-    bool rayTriangleIntersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
-    [[maybe_unused]] std::vector<glm::vec3> rayMeshIntersections(const std::vector<glm::vec3>& vertices,
+    bool ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
+    [[maybe_unused]] std::vector<glm::vec3> ray_mesh_intersections(const std::vector<glm::vec3>& vertices,
                                                                                      const std::vector<glm::vec<3, unsigned int>>& faces,
                                                                                      glm::vec3 ray_origin, glm::vec3 ray_dir
     );
-    std::vector<glm::vec3> rayMeshIntersectionsOptimized(const std::vector<glm::vec3>& vertices,
+    std::vector<glm::vec3> ray_mesh_intersections_optimized(const std::vector<glm::vec3>& vertices,
                                                                               const std::vector<glm::vec<3, unsigned int>>& faces,
                                                                               glm::vec3 ray_origin, glm::vec3 ray_dir
     );
 
     // returns a point which has the minimum coordinate along all the three axis
-    glm::vec3 getMin(const std::vector<glm::vec3>& vertices);
+    glm::vec3 get_min(const std::vector<glm::vec3>& vertices);
     // returns a point which has the maximum coordinate along the three axis
-    glm::vec3 getMax(const std::vector<glm::vec3>& vertices);
+    glm::vec3 get_max(const std::vector<glm::vec3>& vertices);
 
     // return an array of 4 floats; 3 first values are coordinates of the center of the cube
     // the fourth float is the edge length
-    inline std::array<float, 4> getBox(const glm::vec3& min, const glm::vec3& max) {
+    inline std::array<float, 4> get_box(const glm::vec3& min, const glm::vec3& max) {
         auto center = (max + min) * 0.5f;
         float x_width = max.x - min.x;
         float y_width = max.y - min.y;
@@ -63,8 +62,8 @@ namespace util {
 
     // cube geometry
     // pre requisite: p is inside cube
-    std::array<float, 8> trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
-    bool isInsideCube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+    std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+    bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP
