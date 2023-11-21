@@ -200,6 +200,10 @@ int main(int argv, char** args) {
     // output holder for gravity calculated by alternative method (tubes, masses, RT, GPU)
     glm::vec3 gravity = {0.f, 0.f, 0.f};
 
+    // output holders for gravity vector calculated by GPUComputing and space vector
+    std::vector<glm::vec3> discrete_space{};
+    std::vector<glm::vec3> gpu_output_gravity{};
+
     // output holders for gravity with tetrahedrons metho
     glm::vec3 gravity_with_tetrahedrons = {0.f, 0.f, 0.f};
     glm::vec3 gravity_with_tetrahedrons_corrected = {0.f, 0.f, 0.f};
@@ -409,6 +413,8 @@ int main(int argv, char** args) {
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
+                Timer t{};
+                t.log();
                 auto masses_as_float = (float *) &masses.front();
                 std::vector<glm::vec3> space = gravity::getDiscreteSpace(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
                 for (int i = 0; i < 100; i++) {
@@ -421,6 +427,15 @@ int main(int argv, char** args) {
                         space_as_float,
                         space.size() * sizeof(glm::vec3)
                         );
+                std::vector<glm::vec3> output_gravity_as_glm_vec{};
+                int k = 0;
+                for(int i = 0; i < space.size(); i++) {
+                    output_gravity_as_glm_vec.emplace_back(output_gravity[k], output_gravity[k+1], output_gravity[k+2]);
+                    k += 3;
+                }
+                discrete_space = space;
+                gpu_output_gravity = output_gravity_as_glm_vec;
+                t.log();
             }
             if(ImGui::Button("test discrete space as octree")) {
                 Timer timer{};
@@ -446,6 +461,20 @@ int main(int argv, char** args) {
                 } */
                 auto oct = gravity::getGravityOctreeFromMasses(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution, masses);
                 timer.log();
+            }
+
+            if(ImGui::Button("compute gravity from gpu vector")) {
+                Timer t{};
+                t.log();
+                gravity = gravity::getGravityFrom1DPreComputedVector(
+                    glm::make_vec3(potential_point),
+                    gpu_output_gravity,
+                    discrete_space,
+                    util::getMin(mesh.getVertices()),
+                    util::getBox(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()))[3],
+                    gravity_resolution
+                    );
+                t.log();
             }
 
             // GRAVITY OUTPUTS
