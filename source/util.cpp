@@ -5,6 +5,7 @@
 #include <util.hpp>
 #include <array>
 #include <cmath>
+#include <iostream>
 
 glm::quat util::rotationBetweenVectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors
@@ -249,6 +250,7 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
 }
 
 std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
+    std::cout << "is point inside cube? " << util::isInsideCube(p, cube);
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
         volume_per_corner[i] = abs(cube[i].x - p.x)*abs(cube[i].y - p.y)*abs(cube[i].z - p.z);
@@ -259,6 +261,10 @@ std::array<float, 8> util::trilinearCoordinates(const glm::vec3& p, const std::a
     float volume = abs(cube[7].x - cube[0].x)*abs(cube[7].y - cube[0].y)*abs(cube[7].z - cube[0].z);
     for(int i = 0; i < 8; i++) {
         coords[i] = volume_per_corner[7 - i] / volume;
+    }
+    std::cout << "trilinear coordinates: " << std::endl;
+    for(int i = 0; i < 8; i++) {
+        std::cout << coords[i] << std::endl;
     }
     return coords;
 }
