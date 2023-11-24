@@ -2,7 +2,14 @@
 // Created by Giovanni Bollati on 09/04/23.
 //
 
-#include "Shader.hpp"
+#include "shader.hpp"
+#include <iostream>
+
+#ifndef GL_GLEXT_PROTOTYPES
+#define GL_GLEXT_PROTOTYPES 1
+#endif
+
+#include <SDL_opengl.h>
 
 shader::shader(const std::string& vertex_path, const std::string& fragment_path) {
     std::string vertex_source;

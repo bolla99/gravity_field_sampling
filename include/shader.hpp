@@ -5,10 +5,6 @@
 #ifndef GL_TEST_PROJECT_SHADER_HPP
 #define GL_TEST_PROJECT_SHADER_HPP
 
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES 1
-#endif
-
 #include <fstream>
 
 #ifdef WIN32

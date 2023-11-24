@@ -16,12 +16,15 @@ endif()
 
 add_executable(gl_test_project
 		source/main.cpp
+		include/mesh.hpp
         source/mesh.cpp
+		include/shader.hpp
 		source/shader.cpp
 		source/stb_image.cpp
 		shaders/add.metal
         shaders/vs.glsl
         shaders/fs.glsl
+		include/util.hpp
 		source/util.cpp
 		include/gravity.hpp
 		source/gravity.cpp
