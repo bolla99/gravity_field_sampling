@@ -220,16 +220,29 @@ glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& mas
 glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution) {
     // get indices of bounding box
     auto indices = util::get_box_indices(min, range, resolution, point);
+    std::cout << "INDICES:" << std::endl;
+    for(int i = 0; i < 8; i++) {
+        std::cout << indices[i][0] << " " << indices[i][1] << " " << indices[i][2] << std::endl;
+    }
 
     // translate 3d indices to 1d indices
     std::array<int, 8> indices_1d{};
     for(int i = 0; i < 8; i++) {
         indices_1d[i] = util::from_3d_indices_to_1d(indices[i], resolution);
     }
+    std::cout << "indices 1d debug" << std::endl;
+    for(int i = 0; i < 8; i++) {
+        std::cout << indices_1d[i] << std::endl;
+    }
+
     // get space coordinates of bounding box
     std::array<glm::vec3, 8> space_cube{};
     for(int i = 0; i < 8; i++) {
         space_cube[i] = space[indices_1d[i]];
+    }
+    for(int i = 0; i < 8; i++) {
+        std::cout << "debug cube positions" << std::endl;
+        std::cout << space_cube[i].x << " " << space_cube[i].y << " " << space_cube[i].z << " " << std::endl;
     }
     // obtain trilinear coordinates for interpolation
     auto trilinear_coordinates = util::trilinear_coordinates(point, space_cube);
