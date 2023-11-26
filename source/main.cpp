@@ -417,8 +417,8 @@ int main(int argv, char** args) {
                 t.log();
                 auto masses_as_float = (float *) &masses.front();
                 std::vector<glm::vec3> space = gravity::get_discrete_space(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution);
-                for (int i = 0; i < 100; i++) {
-                    std::cout << "{" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
+                for (int i = 0; i < space.size(); i++) {
+                    std::cout << i << " {" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
                 }
                 auto space_as_float = (float *) (glm::value_ptr(space.front()));
                 float *output_gravity = GPUComputing::get_gravity_from_point_masses_and_discrete_space(
@@ -436,6 +436,8 @@ int main(int argv, char** args) {
                 discrete_space = space;
                 gpu_output_gravity = output_gravity_as_glm_vec;
                 t.log();
+
+                util::print_loc_gravity_debug(space, gpu_output_gravity);
             }
             if(ImGui::Button("test discrete space as octree")) {
                 Timer timer{};
@@ -470,8 +472,8 @@ int main(int argv, char** args) {
                     glm::make_vec3(potential_point),
                     gpu_output_gravity,
                     discrete_space,
-                    util::get_min(msh.get_vertices()),
-                    util::get_box(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()))[3],
+                    discrete_space.front(),
+                    abs(discrete_space.front().x - discrete_space.back().x),
                     gravity_resolution
                     );
                 t.log();
