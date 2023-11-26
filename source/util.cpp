@@ -237,15 +237,19 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     auto x_i = x_extent / unit;
     auto y_i = y_extent / unit;
     auto z_i = z_extent / unit;
+    std::cout << "get_box_indices debug: " << x_i << " " << y_i << " " << z_i << std::endl;
+    int floor_x = floor(x_i);
+    int floor_y = floor(y_i);
+    int floor_z = floor(z_i);
     return std::array<std::array<int, 3>, 8>{
-            std::array<int, 3>{(int)floor(x_i), (int)floor(y_i), (int)floor(z_i)},
-            std::array<int, 3>{(int)ceil(x_i), (int)floor(y_i), (int)floor(z_i)},
-            std::array<int, 3>{(int)floor(x_i), (int)ceil(y_i), (int)floor(z_i)},
-            std::array<int, 3>{(int)ceil(x_i), (int)ceil(y_i), (int)floor(z_i)},
-            std::array<int, 3>{(int)floor(x_i), (int)floor(y_i), (int)ceil(z_i)},
-            std::array<int, 3>{(int)ceil(x_i), (int)floor(y_i), (int)ceil(z_i)},
-            std::array<int, 3>{(int)floor(x_i), (int)ceil(y_i), (int)ceil(z_i)},
-            std::array<int, 3>{(int)ceil(x_i), (int)ceil(y_i), (int)ceil(z_i)},
+            std::array<int, 3>{floor_x, floor_y, floor_z},
+            std::array<int, 3>{floor_x + 1, floor_y, floor_z},
+            std::array<int, 3>{floor_x, floor_y + 1, floor_z},
+            std::array<int, 3>{floor_x + 1, floor_y + 1, floor_z},
+            std::array<int, 3>{floor_x, floor_y, floor_z + 1},
+            std::array<int, 3>{floor_x + 1, floor_y, floor_z + 1},
+            std::array<int, 3>{floor_x, floor_y + 1, floor_z + 1},
+            std::array<int, 3>{floor_x + 1, floor_y + 1, floor_z + 1},
     };
 }
 
@@ -272,4 +276,11 @@ std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::
 bool util::is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
     return p.x >= cube[0].x && p.y >= cube[0].y && p.z >= cube[0].z &&
            p.x <= cube[7].x && p.y <= cube[7].y && p.z <= cube[7].z;
+}
+
+void util::print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity) {
+    for(int i = 0; i < space.size(); i++) {
+        std::cout << "point: " << space[i].x << " " << space[i].y << " " << space[i].z << std::endl;
+        std::cout << "gravity: " << gravity[i].x << " " << gravity[i].y << " " << gravity[i].z << std::endl;
+    }
 }

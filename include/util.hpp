@@ -57,13 +57,16 @@ namespace util {
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
 
     inline int from_3d_indices_to_1d(std::array<int, 3> indices, int resolution) {
-        return indices[0] * resolution * resolution + indices[1] * resolution + indices[2];
+        return indices[0] * (resolution + 1) * (resolution + 1) + indices[1] * (resolution + 1) + indices[2];
     }
 
     // cube geometry
     // pre requisite: p is inside cube
     std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
     bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+
+    // DEBUG PRINT
+    void print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity);
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP
