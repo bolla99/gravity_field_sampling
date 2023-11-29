@@ -68,10 +68,12 @@ float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const floa
     auto output = (float*)malloc(spaceSize);
     memcpy(output, output_buffer->contents(), spaceSize);
 
+    /*
     for(int i = 0; i < 1000; i+=3) {
         std::cout << ((float *)output_buffer->contents())[i] << " "
                   << ((float *)output_buffer->contents())[i + 1] << " "
                   << ((float *)output_buffer->contents())[i + 2] << std::endl;
     }
+    */
     return output;
 }
