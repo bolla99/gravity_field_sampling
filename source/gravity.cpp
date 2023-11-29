@@ -217,33 +217,35 @@ glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& mas
     return gravity;
 }
 
-glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, glm::vec3 min, float range, int resolution) {
+glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
     // get indices of bounding box
-    auto indices = util::get_box_indices(min, range, resolution, point);
-    std::cout << "INDICES:" << std::endl;
+    auto indices = util::get_box_indices(space.front(), abs(space.back().x - space.front().x), resolution, point);
+
+    /*
+    std::cout << "indices debug" << std::endl;
     for(int i = 0; i < 8; i++) {
         std::cout << indices[i][0] << " " << indices[i][1] << " " << indices[i][2] << std::endl;
-    }
+    }*/
 
     // translate 3d indices to 1d indices
     std::array<int, 8> indices_1d{};
     for(int i = 0; i < 8; i++) {
         indices_1d[i] = util::from_3d_indices_to_1d(indices[i], resolution);
     }
-    std::cout << "indices 1d debug" << std::endl;
+
+    /*
+    std::cout << "1d indices debug" << std::endl;
     for(int i = 0; i < 8; i++) {
         std::cout << indices_1d[i] << std::endl;
     }
+    */
 
     // get space coordinates of bounding box
     std::array<glm::vec3, 8> space_cube{};
     for(int i = 0; i < 8; i++) {
         space_cube[i] = space[indices_1d[i]];
     }
-    for(int i = 0; i < 8; i++) {
-        std::cout << "debug cube positions" << std::endl;
-        std::cout << space_cube[i].x << " " << space_cube[i].y << " " << space_cube[i].z << " " << std::endl;
-    }
+
     // obtain trilinear coordinates for interpolation
     auto trilinear_coordinates = util::trilinear_coordinates(point, space_cube);
     glm::vec3 output_gravity{};
@@ -501,4 +503,20 @@ float gravity::volume(
         volume += util::tetrahedron_volume(tetrahedron.b1, tetrahedron.b2, tetrahedron.b3, tetrahedron.v) * 10;
     }
     return volume;
+}
+
+int gravity::build_octree(float precision, std::vector<node>& octree, int id, int next_id, int max_res, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
+    if(should_divide(precision, octree[id], min, edge, gravity, space, resolution) && max_res > 0) {
+        max_res--;
+        auto min_box = util::get_box(min, edge/2.0f);
+        for(int i = 0; i < 8; i++) {
+            octree.push_back(gravity::build_node(min_box[i], edge/2.0f, gravity, space, resolution));
+        }
+        int new_id = next_id;
+        int new_next_id = next_id + 8;
+        for(int i = 0; i < 8; i++) {
+            new_next_id = build_octree(precision, octree, new_id + i, new_next_id, max_res, min_box[i], edge/2.0f, gravity, space, resolution);
+        }
+    }
+    return next_id;
 }
