@@ -66,6 +66,10 @@ std::string loadMetalShader(const std::string& path);
  // ************************** MAIN ************************ //
 // ******************************************************** //
 int main(int argv, char** args) {
+    std::cout << "NUMERIC LIMIT" <<  std::numeric_limits<float>::epsilon();
+    auto v1 = glm::vec3{1, 1, 1};
+    auto v2 = glm::vec3{1.12, 1.09, 1.09};
+    std::cout << "test vectors are p equal" << util::vectors_are_p_equal(v1, v2, 0.1);
 
     // SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -209,7 +213,7 @@ int main(int argv, char** args) {
     glm::vec3 gravity_with_tetrahedrons_corrected = {0.f, 0.f, 0.f};
 
     // parameters used where function parameter "resolution" is required.
-    int gravity_resolution = 0;
+    int gravity_resolution = 32;
 
     // tubes and masses containers
     std::vector<gravity::tube> tubes = {};
@@ -393,33 +397,37 @@ int main(int argv, char** args) {
             ImGui::InputFloat3("tetrahedron vertex", tetrahedron_vertex);
             ImGui::Text("Volume %f", volume);
 
-            ImGui::InputInt("ray gravity resolution", &gravity_resolution);
+            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 256);
             ImGui::InputFloat3("potential point", potential_point);
+            /*
             if(ImGui::Button("calculate gravity rt")) {
                 gravity = gravity::get_gravity_RT(msh.get_vertices(), msh.get_faces(), gravity_resolution, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("set up tubes")) { tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with tubes")) {
                 gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
+            }*/
+            if(ImGui::Button("set up masses")) {
+                masses.erase(masses.begin(), masses.end());
+                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution);
             }
-            if(ImGui::Button("set up masses")) { masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution); }
             if(ImGui::Button("calculate gravity with masses")) {
                 Timer t{};
                 t.log();
                 gravity = gravity::get_gravity_from_masses(masses, 10, glm::make_vec3(potential_point));
                 t.log();
-            }
-            ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);
+            }/*
+            ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);*/
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
                 Timer t{};
                 t.log();
-                auto masses_as_float = (float *) &masses.front();
+                auto masses_as_float = (float *) &(masses.front());
                 std::vector<glm::vec3> space = gravity::get_discrete_space(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution);
-                for (int i = 0; i < space.size(); i++) {
-                    std::cout << i << " {" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
-                }
+                /*for (int i = 0; i < space.size(); i++) {
+                    std::cout << i << " space {" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
+                }*/
                 auto space_as_float = (float *) (glm::value_ptr(space.front()));
                 float *output_gravity = GPUComputing::get_gravity_from_point_masses_and_discrete_space(
                         masses_as_float,
@@ -435,18 +443,19 @@ int main(int argv, char** args) {
                 }
                 discrete_space = space;
                 gpu_output_gravity = output_gravity_as_glm_vec;
+                /*for (int i = 0; i < gpu_output_gravity.size(); i++) {
+                    std::cout << i << " gravity {" << gpu_output_gravity[i].x << " " << gpu_output_gravity[i].y << " " << gpu_output_gravity[i].z << "}" << std::endl;
+                }*/
                 t.log();
-
-                util::print_loc_gravity_debug(space, gpu_output_gravity);
-            }
+            }/*
             if(ImGui::Button("test discrete space as octree")) {
                 Timer timer{};
-                timer.log(); /*
+                timer.log();
                 auto o = gravity::getDiscreteSpaceAsOctree(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
                 std::cout << "is leaf?: " << (o->isLeaf() ? "true" : "false") << std::endl;
                 std::cout << "size of octree: " << o->bytesize() << std::endl;
                 delete o;
-                /*
+
                 // test trilinear interpolation
                 std::array<glm::vec3, 8> cube = {glm::vec3{-1.0, -1.0, -1.0},
                                                  glm::vec3{1.0, -1.0, -1.0},
@@ -460,10 +469,10 @@ int main(int argv, char** args) {
                 std::array<float, 8> trilinear_coords = util::trilinearCoordinates(glm::make_vec3(potential_point), cube);
                 for(int i = 0; i < 8; i++) {
                     std::cout << "trilinear coords " << i << ": " << trilinear_coords[i] << std::endl;
-                } */
+                }
                 auto oct = gravity::get_gravity_octree_from_masses(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution, masses);
                 timer.log();
-            }
+            }*/
 
             if(ImGui::Button("compute gravity from gpu vector")) {
                 Timer t{};
@@ -472,11 +481,33 @@ int main(int argv, char** args) {
                     glm::make_vec3(potential_point),
                     gpu_output_gravity,
                     discrete_space,
-                    discrete_space.front(),
-                    abs(discrete_space.front().x - discrete_space.back().x),
                     gravity_resolution
                     );
                 t.log();
+            }
+
+            int octree_depth;
+            ImGui::SliderInt("octree max depth", &octree_depth, 0, 10);
+            float precision;
+            ImGui::SliderFloat("octree precision", &precision, 0.f, 1.f);
+            if(ImGui::Button("test new octree")) {
+                gravity::node n = gravity::build_node(
+                    discrete_space.front(),
+                    abs(discrete_space.front().x - discrete_space.back().x),
+                    gpu_output_gravity,
+                    discrete_space,
+                    gravity_resolution
+                    );
+                auto octree = std::vector<gravity::node>();
+                octree.push_back(n);
+                gravity::build_octree(precision, octree, 0, 1, octree_depth,
+                     discrete_space.front(),
+                    abs(discrete_space.front().x - discrete_space.back().x),
+                    gpu_output_gravity,
+                    discrete_space,
+                    gravity_resolution);
+
+                std::cout << "octree size: " << octree.size() << std::endl;
             }
 
             // GRAVITY OUTPUTS
