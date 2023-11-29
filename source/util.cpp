@@ -237,7 +237,7 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     auto x_i = x_extent / unit;
     auto y_i = y_extent / unit;
     auto z_i = z_extent / unit;
-    std::cout << "get_box_indices debug: " << x_i << " " << y_i << " " << z_i << std::endl;
+    //std::cout << "get_box_indices debug: " << x_i << " " << y_i << " " << z_i << std::endl;
     int floor_x = floor(x_i);
     int floor_y = floor(y_i);
     int floor_z = floor(z_i);
@@ -254,7 +254,7 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
 }
 
 std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
-    std::cout << "is point inside cube? " << util::is_inside_cube(p, cube);
+    // std::cout << "is point inside cube? " << util::is_inside_cube(p, cube);
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
         volume_per_corner[i] = abs(cube[i].x - p.x)*abs(cube[i].y - p.y)*abs(cube[i].z - p.z);
@@ -266,10 +266,10 @@ std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::
     for(int i = 0; i < 8; i++) {
         coords[i] = volume_per_corner[7 - i] / volume;
     }
-    std::cout << "trilinear coordinates: " << std::endl;
+    /*std::cout << "trilinear coordinates: " << std::endl;
     for(int i = 0; i < 8; i++) {
         std::cout << coords[i] << std::endl;
-    }
+    }*/
     return coords;
 }
 

@@ -52,6 +52,18 @@ namespace util {
         if (z_width > max_extent) max_extent = z_width;
         return {center.x, center.y, center.z, max_extent};
     }
+    inline std::array<glm::vec3, 8> get_box(const glm::vec3& min, float edge) {
+        return {
+            glm::vec3{min.x, min.y, min.z},
+            glm::vec3{min.x + edge, min.y, min.z},
+            glm::vec3{min.x, min.y + edge, min.z},
+            glm::vec3{min.x + edge, min.y + edge, min.z},
+            glm::vec3{min.x, min.y, min.z + edge},
+            glm::vec3{min.x + edge, min.y, min.z + edge},
+            glm::vec3{min.x, min.y + edge, min.z + edge},
+            glm::vec3{min.x + edge, min.y + edge, min.z + edge}
+        };
+    }
 
     // allows to select a bounding box of a point from a 3d space vector
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
@@ -63,6 +75,20 @@ namespace util {
     // cube geometry
     // pre requisite: p is inside cube
     std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+
+    inline glm::vec3 interpolate(const glm::vec3& p, const std::array<glm::vec3, 8>& cube, const std::array<glm::vec3, 8> values) {
+        auto weights = trilinear_coordinates(p, cube);
+        auto output = glm::vec3{};
+        for(int i = 0; i < 8; i++) { output += values[i]*weights[i]; }
+        return output;
+    }
+
+    inline bool vectors_are_p_equal(glm::vec3 v1, glm::vec3 v2, float p) {
+        return  (v1.x > (v2.x - v2.x * p) && v1.x < (v2.x + v2.x * p)) &&
+                (v1.y > (v2.y - v2.y * p) && v1.y < (v2.y + v2.y * p)) &&
+                (v1.z > (v2.z - v2.z * p) && v1.z < (v2.z + v2.z * p));
+    }
+
     bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
 
     // DEBUG PRINT
