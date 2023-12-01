@@ -5,6 +5,7 @@
 #ifndef GL_TEST_PROJECT_TIMER_HPP
 #define GL_TEST_PROJECT_TIMER_HPP
 
+#include <iostream>
 #include <SDL.h>
 
 class Timer {
