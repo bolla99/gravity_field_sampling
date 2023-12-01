@@ -28,8 +28,6 @@ add_executable(gl_test_project
 		source/util.cpp
 		include/gravity.hpp
 		source/gravity.cpp
-        include/octree.hpp
-		source/octree.cpp
 		include/timer.hpp
 )
 
