@@ -215,6 +215,9 @@ int main(int argv, char** args) {
     // parameters used where function parameter "resolution" is required.
     int gravity_resolution = 32;
 
+    // mass radius
+    float mass_R;
+
     // tubes and masses containers
     std::vector<gravity::tube> tubes = {};
     std::vector<gravity::mass> masses = {};
@@ -409,12 +412,14 @@ int main(int argv, char** args) {
             }*/
             if(ImGui::Button("set up masses")) {
                 masses.erase(masses.begin(), masses.end());
-                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution);
+                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
+                std::cout << "MASS RADIUS: " << mass_R << std::endl;
             }
             if(ImGui::Button("calculate gravity with masses")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::get_gravity_from_masses(masses, 10, glm::make_vec3(potential_point));
+                std::cout << "MASS RADIUS BEFORE CALLING GET GRAVITY: " << mass_R << std::endl;
+                gravity = gravity::get_gravity_from_masses(masses, 10, mass_R, glm::make_vec3(potential_point));
                 t.log();
             }/*
             ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);*/
@@ -505,7 +510,9 @@ int main(int argv, char** args) {
                     abs(discrete_space.front().x - discrete_space.back().x),
                     gpu_output_gravity,
                     discrete_space,
-                    gravity_resolution);
+                    gravity_resolution,
+                    msh.get_vertices(),
+                    msh.get_faces());
 
                 std::cout << "octree size: " << octree.size() << std::endl;
             }

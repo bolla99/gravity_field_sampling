@@ -43,10 +43,12 @@ namespace gravity {
     std::vector<mass> get_masses(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
-            int resolution);
+            int resolution,
+            float* mass_R
+            );
 
     glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
-    glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point);
+    glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point);
 
     // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point
     // space and gravity vector are meant to be precomputed during a non real-time phase, while
@@ -172,7 +174,19 @@ namespace gravity {
 
     }
 
-    int build_octree(float precision, std::vector<node>& octree, int id, int next_id, int max_res, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution);
+    int build_octree(
+        float precision,
+        std::vector<node>& octree,
+        int id,
+        int next_id,
+        int max_res,
+        glm::vec3 min,
+        float edge,
+        const std::vector<glm::vec3>& gravity,
+        const std::vector<glm::vec3>& space, int resolution,
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
+        );
 }
 
 

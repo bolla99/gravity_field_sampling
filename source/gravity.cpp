@@ -5,6 +5,7 @@
 #include "gravity.hpp"
 #include "util.hpp"
 #include <iostream>
+#include <algorithm>
 #include <omp.h>
 #include <SDL.h>
 
@@ -63,7 +64,9 @@ std::vector<gravity::tube> gravity::get_tubes(
 std::vector<gravity::mass> gravity::get_masses(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
-        int resolution) {
+        int resolution,
+        float* mass_R
+        ) {
     omp_set_num_threads(omp_get_max_threads());
     std::vector<tube> tubes = {};
     std::vector<mass> volumes = {};
@@ -90,16 +93,21 @@ std::vector<gravity::mass> gravity::get_masses(
 
     // CUBE EDGE LENGTH
     float cube_edge = max_extent / (float)resolution;
+
+    // SET MASS SPHERE RADIUS
+    *mass_R = (float)std::cbrt(std::pow(cube_edge, 3) * (3.f / 4.f) / M_PI);
+
     auto cube_volume = (float)std::pow(cube_edge, 3);
     glm::vec3 ray_dir = {0.f, 0.f, 1.f};
 
-#pragma omp parallel for default(none), shared(resolution, cube_edge, cube_volume, ray_dir, tubes, min, volumes, vertices, faces)
+#pragma omp parallel for default(none), shared(resolution, cube_edge, cube_volume, ray_dir, tubes, min, volumes, vertices, faces, mass_R)
     for(int i = 0; i < resolution + 1; i++) {
         for(int j = 0; j < resolution + 1; j++) {
             // RAY
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
             std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
+            if(intersections.size() == 3) intersections.erase(intersections.end() - 1);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -117,6 +125,8 @@ std::vector<gravity::mass> gravity::get_masses(
                 if (units_per_tube == 0) continue;
                 // TUBE VERTEX OFFSET
                 float tube_unit = glm::length(t.t2 - t.t1) / (float) units_per_tube;
+#pragma omp critical
+                *mass_R = std::min(*mass_R, (float)std::cbrt(std::pow(tube_unit, 3) * (3.f / 4.f) / M_PI));
                 for (int n = 0; n < units_per_tube + 1; n++) {
 #pragma omp critical
                     volumes.push_back({t.t1 + glm::normalize(t.t2 - t.t1) * (float) n * tube_unit, new_cube_volume});
@@ -193,17 +203,22 @@ glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices
     return gravity;
 }
 
-glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, glm::vec3 point) {
+glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point) {
     Uint64 start = SDL_GetTicks64();
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
         thread_gravity[i] = {0, 0, 0};
     }
-#pragma omp parallel for default(none) shared(masses, point, G, thread_gravity)
+#pragma omp parallel for default(none) shared(masses, point, G, thread_gravity, R, std::cout)
     for(auto & mass : masses) {
         glm::vec3 dir = mass.p - point;
         auto r3 = (float)pow(glm::length(dir), 3);
+        if(glm::length(dir) < R) {
+#pragma omp critical
+            std::cout << "mass too near " << mass.p.x << " " << mass.p.y << " " << mass.p.z << std::endl;
+            r3 = (float)std::pow(R, 3);
+        }
         if (r3 > -std::numeric_limits<float>::epsilon() && r3 < std::numeric_limits<float>::epsilon()) {
             continue;
         }
@@ -256,6 +271,7 @@ glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const
     return output_gravity;
 }
 
+/*
 octree<gravity::gravity_cube>* gravity::get_gravity_octree_from_masses(
         glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses) {
     // get bounding box
@@ -314,7 +330,7 @@ octree<gravity::gravity_cube>* gravity::get_gravity_octree_from_masses(
     auto root = new octree<gravity::gravity_cube>(gc);
     root->execute(resolution, gc, f, condition);
     return root;
-}
+}*/
 
 std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution) {
     omp_set_num_threads(omp_get_max_threads());
@@ -505,8 +521,23 @@ float gravity::volume(
     return volume;
 }
 
-int gravity::build_octree(float precision, std::vector<node>& octree, int id, int next_id, int max_res, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
-    if(should_divide(precision, octree[id], min, edge, gravity, space, resolution) && max_res > 0) {
+int gravity::build_octree(
+    float precision,
+    std::vector<node>& octree,
+    int id,
+    int next_id,
+    int max_res,
+    glm::vec3 min,
+    float edge,
+    const std::vector<glm::vec3>& gravity,
+    const std::vector<glm::vec3>& space, int resolution,
+    const std::vector<glm::vec3>& vertices,
+    const std::vector<glm::vec<3, unsigned int>>& faces
+    ) {
+    if(!util::is_box_inside_mesh(util::get_box(min, edge), vertices, faces)
+        && should_divide(precision, octree[id], min, edge, gravity, space, resolution)
+        && max_res > 0
+        ) {
         max_res--;
         auto min_box = util::get_box(min, edge/2.0f);
         for(int i = 0; i < 8; i++) {
@@ -515,7 +546,7 @@ int gravity::build_octree(float precision, std::vector<node>& octree, int id, in
         int new_id = next_id;
         int new_next_id = next_id + 8;
         for(int i = 0; i < 8; i++) {
-            new_next_id = build_octree(precision, octree, new_id + i, new_next_id, max_res, min_box[i], edge/2.0f, gravity, space, resolution);
+            new_next_id = build_octree(precision, octree, new_id + i, new_next_id, max_res, min_box[i], edge/2.0f, gravity, space, resolution, vertices, faces);
         }
     }
     return next_id;
