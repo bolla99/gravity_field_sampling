@@ -20,7 +20,6 @@
 #include <GPUComputing.hpp>
 #include <gravity.hpp>
 #include <timer.hpp>
-#include <octree.hpp>
 
 // stdlib
 #include <iostream>
@@ -193,24 +192,15 @@ int main(int argv, char** args) {
 
     // GRAVITY VALUES
 
-    // tetrahedron vertex for gravity and volume calculation; chosen arbitrarily
-    float tetrahedron_vertex[3] = {0.f, 0.f, 0.f};
-    // scale value for gravity calculated with tetrahedrons method
-    float tetrahedrons_gravity_scale = 60.f;
-
     // point where gravity is calculated
     float potential_point[3] = {0.f, 0.f, 0.f};
 
-    // output holder for gravity calculated by alternative method (tubes, masses, RT, GPU)
+    // output holder for gravity
     glm::vec3 gravity = {0.f, 0.f, 0.f};
 
     // output holders for gravity vector calculated by GPUComputing and space vector
     std::vector<glm::vec3> discrete_space{};
     std::vector<glm::vec3> gpu_output_gravity{};
-
-    // output holders for gravity with tetrahedrons metho
-    glm::vec3 gravity_with_tetrahedrons = {0.f, 0.f, 0.f};
-    glm::vec3 gravity_with_tetrahedrons_corrected = {0.f, 0.f, 0.f};
 
     // parameters used where function parameter "resolution" is required.
     int gravity_resolution = 32;
@@ -218,8 +208,7 @@ int main(int argv, char** args) {
     // mass radius
     float mass_R;
 
-    // tubes and masses containers
-    std::vector<gravity::tube> tubes = {};
+    // masses container
     std::vector<gravity::mass> masses = {};
 
     // mesh volume
@@ -316,12 +305,7 @@ int main(int argv, char** args) {
          */
 
         // UPDATE MESH VOLUME
-        volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {tetrahedron_vertex[0], tetrahedron_vertex[1], tetrahedron_vertex[2]});
-
-        // UPDATE GRAVITY WITH TETRAHEDRONS (REAL TIME - done every frame)
-        gravity_with_tetrahedrons = gravity::get_gravity_from_tetrahedrons(msh.get_vertices(), msh.get_faces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
-        gravity_with_tetrahedrons_corrected = gravity::get_gravity_from_tetrahedrons_corrected(msh.get_vertices(), msh.get_faces(), glm::make_vec3(potential_point), glm::make_vec3(tetrahedron_vertex)) * tetrahedrons_gravity_scale;
-
+        volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {2.f, 2.f, 2.f});
 
 
           // ******************************************************* //
@@ -397,19 +381,11 @@ int main(int argv, char** args) {
         // GRAVITY CALCULATION OPERATIONS
         if(msh.is_loaded()) {
             ImGui::Begin("GRAVITY PROCESSING");
-            ImGui::InputFloat3("tetrahedron vertex", tetrahedron_vertex);
             ImGui::Text("Volume %f", volume);
 
             ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 256);
             ImGui::InputFloat3("potential point", potential_point);
-            /*
-            if(ImGui::Button("calculate gravity rt")) {
-                gravity = gravity::get_gravity_RT(msh.get_vertices(), msh.get_faces(), gravity_resolution, glm::make_vec3(potential_point));
-            }
-            if(ImGui::Button("set up tubes")) { tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution); }
-            if(ImGui::Button("calculate gravity with tubes")) {
-                gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
-            }*/
+
             if(ImGui::Button("set up masses")) {
                 masses.erase(masses.begin(), masses.end());
                 masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
@@ -520,11 +496,6 @@ int main(int argv, char** args) {
             // GRAVITY OUTPUTS
             ImGui::Text("gravity: %f %f %f", gravity.x, gravity.y, gravity.z);
             ImGui::Text("gravity force: %f", glm::length(gravity));
-
-            ImGui::Text("gravity with tetrahedrons: %f %f %f", gravity_with_tetrahedrons.x, gravity_with_tetrahedrons.y, gravity_with_tetrahedrons.z);
-            ImGui::Text("gravity force with tetrahedrons: %f", glm::length(gravity_with_tetrahedrons));
-            ImGui::Text("gravity with tetrahedrons corrected: %f %f %f", gravity_with_tetrahedrons_corrected.x, gravity_with_tetrahedrons_corrected.y, gravity_with_tetrahedrons_corrected.z);
-            ImGui::Text("gravity force with tetrahedrons corrected: %f", glm::length(gravity_with_tetrahedrons_corrected));
 
             // RAY PARAMETERS INPUT
             ImGui::InputFloat3("ray origin", origin);

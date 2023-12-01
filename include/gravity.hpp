@@ -7,7 +7,6 @@
 
 #include <vector>
 #include <glm/glm.hpp>
-#include <octree.hpp>
 #include <util.hpp>
 
 namespace gravity {
@@ -60,36 +59,19 @@ namespace gravity {
     // bounding box vertex;
     glm::vec3 get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution);
 
-    octree<gravity::gravity_cube>* get_gravity_octree_from_masses(
-            glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses);
 
     // vettore monodimensionale for(x) {for(y) {for(z)}}}
     std::vector<glm::vec3> get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution);
-
-    octree<gravity::cube>* get_discrete_space_as_octree(glm::vec3 min, glm::vec3 max, int resolution);
 
     glm::vec3 get_gravity_RT(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces, int resolution, glm::vec3 point
     );
 
-    // for each face -> compute tetrahedron signed volume; find barycentre and add force to total
-    glm::vec3 get_gravity_from_tetrahedrons(
-            const std::vector<glm::vec3>& vertices,
-            const std::vector<glm::vec<3, unsigned int>>& faces,
-            const glm::vec3& p, const glm::vec3& tetrahedrons_vertex);
-
-    glm::vec3 get_gravity_from_tetrahedrons_corrected(
-            const std::vector<glm::vec3>& vertices,
-            const std::vector<glm::vec<3, unsigned int>>& faces,
-            const glm::vec3& p, const glm::vec3& tetrahedrons_vertex);
-
     float volume(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
             const glm::vec3& t);
-
-
 
     // OCTREE CONSTRUCTION STUFF
     struct node {
