@@ -278,6 +278,15 @@ bool util::is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cu
            p.x <= cube[7].x && p.y <= cube[7].y && p.z <= cube[7].z;
 }
 
+bool util::is_box_inside_mesh(std::array<glm::vec3, 8> cube, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces) {
+    for(int i = 0; i < 4; i++) {
+        auto intersections = ray_mesh_intersections(vertices, faces, cube[i], cube[7 - i] - cube[i]);
+        if(intersections.size() != 1) return false;
+        if(glm::distance(cube[i], intersections[0]) < glm::distance(cube[i], cube[7 - 1])) return false;
+    }
+    return true;
+}
+
 void util::print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity) {
     for(int i = 0; i < space.size(); i++) {
         std::cout << "point: " << space[i].x << " " << space[i].y << " " << space[i].z << std::endl;

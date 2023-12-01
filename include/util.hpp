@@ -90,6 +90,7 @@ namespace util {
     }
 
     bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+    bool is_box_inside_mesh(std::array<glm::vec3, 8> cube, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces);
 
     // DEBUG PRINT
     void print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity);
