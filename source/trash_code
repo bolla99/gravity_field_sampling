@@ -50,3 +50,132 @@
                          v_up
                          );
                  */
+
+
+
+
+glm::vec3 gravity::get_gravity_from_tetrahedrons(
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces,
+        const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) {
+    glm::vec3 gravity = {0.f, 0.f, 0.f};
+    for(auto & face : faces) {
+        tetrahedron t = {
+                vertices[face.x - 1],
+                vertices[face.y - 1],
+                vertices[face.z - 1],
+                tetrahedrons_vertex};
+        float mass = util::tetrahedron_volume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedron_barycentre(t.b1, t.b2, t.b3, t.v);
+        float distance = glm::length(p - barycentre);
+        gravity = gravity - ((p - barycentre)*mass) / (float)pow(distance, 3);
+    }
+    return gravity;
+}
+
+glm::vec3 gravity::get_gravity_from_tetrahedrons_corrected(
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces,
+        const glm::vec3& p, const glm::vec3& tetrahedrons_vertex) {
+    glm::vec3 gravity = {0.f, 0.f, 0.f};
+    for(auto & face : faces) {
+        tetrahedron t = {
+                vertices[face.x - 1],
+                vertices[face.y - 1],
+                vertices[face.z - 1],
+                tetrahedrons_vertex};
+        float mass = util::tetrahedron_volume(t.b1, t.b2, t.b3, t.v);
+        glm::vec3 barycentre = util::tetrahedron_barycentre(t.b1, t.b2, t.b3, t.v);
+        gravity = gravity + ((barycentre - p)*mass) / (float)pow(glm::length(barycentre - p), 3);
+    }
+    return gravity;
+}
+
+
+octree<gravity::cube>* gravity::get_discrete_space_as_octree(glm::vec3 min, glm::vec3 max, int resolution) {
+    auto _cube = util::get_box(min, max);
+
+    gravity::cube cube = {{_cube[0], _cube[1], _cube[2]}, _cube[3] / 2.0f };
+    auto f = [](gravity::cube c)->std::array<gravity::cube, 8>{
+        float new_extent = c.extent / 2.0f;
+        glm::vec3 min = {c.center.x - new_extent, c.center.y - new_extent, c.center.z - new_extent};
+        std::array<gravity::cube, 8> new_cubes{};
+        new_cubes[0] = {{min.x, min.y, min.z}, new_extent};
+        new_cubes[1] = {{min.x + c.extent, min.y, min.z}, new_extent};
+        new_cubes[2] = {{min.x, min.y + c.extent, min.z}, new_extent};
+        new_cubes[3] = {{min.x + c.extent, min.y + c.extent, min.z}, new_extent};
+        new_cubes[4] = {{min.x, min.y, min.z + c.extent}, new_extent};
+        new_cubes[5] = {{min.x + c.extent, min.y, min.z + c.extent}, new_extent};
+        new_cubes[6] = {{min.x, min.y + c.extent, min.z + c.extent}, new_extent};
+        new_cubes[7] = {{min.x + c.extent, min.y + c.extent, min.z + c.extent}, new_extent};
+        return new_cubes;
+    };
+    auto condition = [](std::array<gravity::cube, 8>)->bool {
+        return true;
+    };
+    auto root = new octree<gravity::cube>(cube);
+    root->execute(resolution, cube, f, condition);
+    return root;
+}
+
+
+/*
+octree<gravity::gravity_cube>* gravity::get_gravity_octree_from_masses(
+        glm::vec3 min, glm::vec3 max, int resolution, const std::vector<gravity::mass>& masses) {
+    // get bounding box
+    auto _cube = util::get_box(min, max);
+    glm::vec3 center{_cube[0], _cube[1], _cube[2]};
+    auto edge_length = _cube[3];
+    min = center - (edge_length / 2.0f);
+
+    // set octree root element
+    gravity::gravity_cube gc = {{center, edge_length / 2.0f }, std::array<glm::vec3, 8>{}};
+    gc.g[0] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z});
+    gc.g[1] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+    gc.g[2] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+    gc.g[3] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+    gc.g[4] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+    gc.g[5] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+    gc.g[6] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+    gc.g[7] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+
+    // f function
+    auto f = [masses](gravity::gravity_cube gc)->std::array<gravity::gravity_cube, 8> {
+        float new_edge = gc.c.extent / 2.0f;
+        glm::vec3 min = {gc.c.center.x - new_edge, gc.c.center.y - new_edge, gc.c.center.z - new_edge};
+        std::array<gravity::cube, 8> new_cubes{};
+        new_cubes[0] = {{min.x, min.y, min.z}, new_edge};
+        new_cubes[1] = {{min.x + gc.c.extent, min.y, min.z}, new_edge};
+        new_cubes[2] = {{min.x, min.y + gc.c.extent, min.z}, new_edge};
+        new_cubes[3] = {{min.x + gc.c.extent, min.y + gc.c.extent, min.z}, new_edge};
+        new_cubes[4] = {{min.x, min.y, min.z + gc.c.extent}, new_edge};
+        new_cubes[5] = {{min.x + gc.c.extent, min.y, min.z + gc.c.extent}, new_edge};
+        new_cubes[6] = {{min.x, min.y + gc.c.extent, min.z + gc.c.extent}, new_edge};
+        new_cubes[7] = {{min.x + gc.c.extent, min.y + gc.c.extent, min.z + gc.c.extent}, new_edge};
+        std::array<gravity::gravity_cube, 8> new_gravity_cubes{};
+        for(int i = 0; i < 8; i++) {
+            new_gravity_cubes[i].c = new_cubes[i];
+            auto edge_length = new_gravity_cubes[i].c.extent;
+            min = new_gravity_cubes[i].c.center - edge_length / 2.0f;
+            new_gravity_cubes[i].g[0] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z});
+            new_gravity_cubes[i].g[1] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z});
+            new_gravity_cubes[i].g[2] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[3] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z});
+            new_gravity_cubes[i].g[4] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[5] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y, min.z + edge_length});
+            new_gravity_cubes[i].g[6] = gravity::get_gravity_from_masses(masses, 10.0, {min.x, min.y + edge_length, min.z + edge_length});
+            new_gravity_cubes[i].g[7] = gravity::get_gravity_from_masses(masses, 10.0, {min.x + edge_length, min.y + edge_length, min.z + edge_length});
+        }
+        return new_gravity_cubes;
+    };
+
+    // condition
+    auto condition = [](std::array<gravity::gravity_cube, 8>)->bool {
+        return true;
+    };
+
+    // create octree and call execute to construct it
+    auto root = new octree<gravity::gravity_cube>(gc);
+    root->execute(resolution, gc, f, condition);
+    return root;
+}*/
