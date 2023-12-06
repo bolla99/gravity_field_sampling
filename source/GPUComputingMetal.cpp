@@ -14,7 +14,7 @@
 #include <cstring>
 #include <iostream>
 
-float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const float* pointMasses, int massesSize, const float* discreteSpace, int spaceSize) {
+float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const float* pointMasses, int massesSize, const float* discreteSpace, int spaceSize, float mass_radius) {
     std::ifstream file;
     file.open("../shaders/add.metal", std::ios::in);
     std::stringstream ss;
@@ -41,16 +41,32 @@ float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const floa
 
     // output buffer
     auto output_buffer = NS::TransferPtr(device->newBuffer(spaceSize, MTL::ResourceStorageModeShared));
+    massesSize /= sizeof(float);
     auto masses_size_buffer = NS::TransferPtr(device->newBuffer(&massesSize, sizeof(int), MTL::ResourceStorageModePrivate));
+    auto mass_radius_buffer = NS::TransferPtr(device->newBuffer(&mass_radius, sizeof(float), MTL::ResourceStorageModePrivate));
 
-    MTL::CommandBuffer* commandBuffer = commandQueue->commandBuffer();
-    MTL::ComputeCommandEncoder* computeCommandEncoder = commandBuffer->computeCommandEncoder();
+    auto commandBuffer = commandQueue->commandBuffer();
+    auto computeCommandEncoder = commandBuffer->computeCommandEncoder();
 
     computeCommandEncoder->setComputePipelineState(computePipelineState.get());
     computeCommandEncoder->setBuffer(space_buffer.get(), 0, 0);
     computeCommandEncoder->setBuffer(masses_buffer.get(), 0, 1);
     computeCommandEncoder->setBuffer(output_buffer.get(), 0, 2);
     computeCommandEncoder->setBuffer(masses_size_buffer.get(), 0, 3);
+    computeCommandEncoder->setBuffer(mass_radius_buffer.get(), 0, 4);
+
+    for(int i = 0; i < 30; i+=3) {
+        std::cout << "space buffer" << ((float *)space_buffer->contents())[i] << " "
+                  << ((float *)space_buffer->contents())[i + 1] << " "
+                  << ((float *)space_buffer->contents())[i + 2] << std::endl;
+    }
+
+    for(int i = 0; i < 30; i+=4) {
+        std::cout << "masses output" << ((float *)masses_buffer->contents())[i] << " "
+                  << ((float *)masses_buffer->contents())[i + 1] << " "
+                  << ((float *)masses_buffer->contents())[i + 2]
+                  << ((float *)masses_buffer->contents())[i + 3]<< std::endl;
+    }
 
     auto size = spaceSize / (3 * sizeof(float));
     MTL::Size gridsize = MTL::Size::Make(size, 1, 1);
@@ -68,12 +84,10 @@ float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const floa
     auto output = (float*)malloc(spaceSize);
     memcpy(output, output_buffer->contents(), spaceSize);
 
-    /*
-    for(int i = 0; i < 1000; i+=3) {
-        std::cout << ((float *)output_buffer->contents())[i] << " "
+    for(int i = 0; i < 30; i+=3) {
+        std::cout << "direct output" << ((float *)output_buffer->contents())[i] << " "
                   << ((float *)output_buffer->contents())[i + 1] << " "
                   << ((float *)output_buffer->contents())[i + 2] << std::endl;
     }
-    */
     return output;
 }
