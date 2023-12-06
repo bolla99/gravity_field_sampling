@@ -8,6 +8,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <util.hpp>
+#include <iostream>
 
 namespace gravity {
     // tube -> line segment
@@ -38,7 +39,9 @@ namespace gravity {
     std::vector<tube> get_tubes(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
-            int resolution);
+            int resolution,
+            float* mass_R
+            );
     std::vector<mass> get_masses(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
@@ -46,7 +49,45 @@ namespace gravity {
             float* mass_R
             );
 
+    // for tubes parallel to z axis
+    inline glm::vec3 get_gravity_from_tube(glm::vec3 p, tube t, float G, float tube_radius) {
+        // t1 -> p
+        auto t1_p = p - t.t1;
+
+        // new coordinate system x_axis
+        auto x = glm::normalize(t.t2 - t.t1);
+        // new coordinate system origin
+        auto o = t.t1 + x * glm::dot(x, t1_p);
+        //std::cout << "ORIGIN " << o.x << " " << o.y << " " << o.z << std::endl;
+        // new coordinate system y and z axis
+        auto y = glm::normalize(p - o);
+        auto z = glm::cross(x, y);
+
+        auto a = glm::distance(p, o);
+        auto b = glm::length(t.t1 - o);
+        auto c = glm::length(t.t2 - o);
+
+        if(b == 0 && a == 0) {b = 0.000001; a = 0.000001; }
+        if(c == 0 && a == 0) {c = 0.000001; a = 0.000001; }
+
+        float fx = ( (G*M_PI*std::pow(tube_radius,2) ) *
+                    ((c / std::sqrt(std::pow(a, 2) + std::pow(c, 2))) - (b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
+                    ) / a;
+        float fy = (G*M_PI*std::pow(tube_radius,2)) *
+                    ((1 / std::sqrt(std::pow(a, 2) + std::pow(b, 2))) - (1 / std::sqrt(std::pow(a, 2) + std::pow(c, 2))));
+
+        glm::vec3 force{fx, -fy, 0};
+        // std::cout << "RELATIVE FORCE " << force.x << " " << force.y << std::endl;
+        /*
+        std::cout << "x axis: " << x.x << " " << x.y << " " << x.z << std::endl;
+        std::cout << "y axis: " << y.x << " " << y.y << " " << y.z << std::endl;
+        std::cout << "z axis: " << z.x << " " << z.y << " " << z.z << std::endl;
+        */
+        return glm::transpose(glm::mat3{x, y, z}) * force + o;
+    }
+
     glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
+    glm::vec3 get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point);
     glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point);
 
     // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point

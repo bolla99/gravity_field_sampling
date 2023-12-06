@@ -70,6 +70,14 @@ int main(int argv, char** args) {
     auto v2 = glm::vec3{1.12, 1.09, 1.09};
     std::cout << "test vectors are p equal" << util::vectors_are_p_equal(v1, v2, 0.1);
 
+    auto force = gravity::get_gravity_from_tube(
+        glm::vec3{0, 0, 0},
+        gravity::tube{{2, 2, -1}, {1, 1, 1}},
+            10.f,
+            0.1f
+            );
+    std::cout << "FORCE FROM TUBE " << force.x << " " << force.y << " " << force.z << std::endl;
+
     // SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
         SDL_Log("INIT FAILED: %s", SDL_GetError());
@@ -209,7 +217,8 @@ int main(int argv, char** args) {
     float mass_R;
 
     // masses container
-    std::vector<gravity::mass> masses = {};
+    std::vector<gravity::mass> masses{};
+    std::vector<gravity::tube> tubes{};
 
     // mesh volume
     float volume = 0.f;
@@ -391,34 +400,50 @@ int main(int argv, char** args) {
                 masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
                 std::cout << "MASS RADIUS: " << mass_R << std::endl;
             }
+            if(ImGui::Button("set up tubes")) {
+                tubes.erase(tubes.begin(), tubes.end());
+                tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
+                std::cout << "MASS RADIUS: " << mass_R << std::endl;
+            }
             if(ImGui::Button("calculate gravity with masses")) {
                 Timer t{};
                 t.log();
                 std::cout << "MASS RADIUS BEFORE CALLING GET GRAVITY: " << mass_R << std::endl;
                 gravity = gravity::get_gravity_from_masses(masses, 10, mass_R, glm::make_vec3(potential_point));
                 t.log();
-            }/*
+            }
+            if(ImGui::Button("calculate gravity with tubes integral")) {
+                Timer t{};
+                t.log();
+                gravity = gravity::get_gravity_from_tubes_with_integral(tubes, 10, mass_R, glm::make_vec3(potential_point));
+                t.log();
+            }
+
+            /*
             ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);*/
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
                 Timer t{};
                 t.log();
-                auto masses_as_float = (float *) &(masses.front());
+                //auto masses_as_float = &(masses.front());
                 std::vector<glm::vec3> space = gravity::get_discrete_space(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution);
-                /*for (int i = 0; i < space.size(); i++) {
+                /*for (int i = 0; i < 30; i++) {
                     std::cout << i << " space {" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
                 }*/
-                auto space_as_float = (float *) (glm::value_ptr(space.front()));
+                auto space_as_float = glm::value_ptr(space.front());
                 float *output_gravity = GPUComputing::get_gravity_from_point_masses_and_discrete_space(
-                        masses_as_float,
+                        glm::value_ptr(masses.front().p),
                         masses.size() * sizeof(gravity::mass),
                         space_as_float,
-                        space.size() * sizeof(glm::vec3)
+                        space.size() * sizeof(glm::vec3),
+                        mass_R
                         );
                 std::vector<glm::vec3> output_gravity_as_glm_vec{};
                 int k = 0;
                 for(int i = 0; i < space.size(); i++) {
+                    if(i < 30)
+                    std::cout << "inserting gravity " << i << " : " << output_gravity[k] << " " << output_gravity[k+1] << " " << output_gravity[k+1] << std::endl;
                     output_gravity_as_glm_vec.emplace_back(output_gravity[k], output_gravity[k+1], output_gravity[k+2]);
                     k += 3;
                 }

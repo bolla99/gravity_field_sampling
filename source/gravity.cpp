@@ -12,7 +12,9 @@
 std::vector<gravity::tube> gravity::get_tubes(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
-        int resolution) {
+        int resolution,
+        float* mass_R
+        ) {
     omp_set_num_threads(omp_get_max_threads());
     std::vector<tube> tubes = {};
 
@@ -38,6 +40,9 @@ std::vector<gravity::tube> gravity::get_tubes(
 
     // CUBE EDGE LENGTH
     float cube_edge = max_extent / (float)resolution;
+
+    *mass_R = (float)std::sqrt(std::pow(cube_edge, 2) / M_PI);
+
     glm::vec3 ray_dir = {0.f, 0.f, 1.f};
 
 #pragma omp parallel for default(none), shared(cube_edge, resolution, ray_dir, tubes, min, vertices, faces)
@@ -47,6 +52,7 @@ std::vector<gravity::tube> gravity::get_tubes(
             ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
             // FIND INTERSECTIONS
             std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
+            if(intersections.size() == 3) intersections.erase(intersections.end() - 1);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
@@ -201,6 +207,14 @@ glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices
         gravity = gravity + thread_gravity[i];
     }
     return gravity;
+}
+
+glm::vec3 gravity::get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point) {
+    glm::vec3 force{};
+    for(auto t : tubes) {
+        force += gravity::get_gravity_from_tube(point, t, G, R);
+    }
+    return force;
 }
 
 glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point) {
