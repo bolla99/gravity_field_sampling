@@ -42,6 +42,8 @@ namespace gravity {
             int resolution,
             float* mass_R
             );
+    std::vector<mass> get_masses_from_tube(tube t, int resolution, const std::vector<glm::vec3>& vertices);
+
     std::vector<mass> get_masses(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
@@ -56,38 +58,76 @@ namespace gravity {
 
         // new coordinate system x_axis
         auto x = glm::normalize(t.t2 - t.t1);
+        if(glm::distance2(t.t2, p) < glm::distance2(t.t1, p))
+            x = glm::normalize(t.t1 - t.t2);
         // new coordinate system origin
         auto o = t.t1 + x * glm::dot(x, t1_p);
         //std::cout << "ORIGIN " << o.x << " " << o.y << " " << o.z << std::endl;
         // new coordinate system y and z axis
         auto y = glm::normalize(p - o);
-        auto z = glm::cross(x, y);
+        auto z = glm::normalize(glm::cross(x, y));
 
         auto a = glm::distance(p, o);
-        auto b = glm::length(t.t1 - o);
-        auto c = glm::length(t.t2 - o);
 
-        if(b == 0 && a == 0) {b = 0.000001; a = 0.000001; }
-        if(c == 0 && a == 0) {c = 0.000001; a = 0.000001; }
+        // potenzialmente da togliere -> ridondante
+        //if(a < std::numeric_limits<float>::epsilon() && a > -std::numeric_limits<float>::epsilon()) {
+        //    return {0.0, 0.0, 0.0};
+        //};
+        // punto dentro al cilindro -> da gestire
 
-        float fx = ( (G*M_PI*std::pow(tube_radius,2) ) *
+        if(a < tube_radius) return {0.0, 0.0, 0.0};
+        auto b = glm::distance(t.t1, o);
+        auto c = glm::distance(t.t2, o);
+
+        if(b > c) {
+            auto tmp = b; b = c; c = tmp;
+        }
+
+        // check potenzialmente da togliere -> ridondanti
+        //auto denom_1 = std::sqrt(std::pow(a, 2) + std::pow(c, 2));
+        //auto denom_2 = std::sqrt(std::pow(a, 2) + std::pow(b, 2));
+
+        //if(denom_1 < std::numeric_limits<float>::epsilon() && denom_1 > -std::numeric_limits<float>::epsilon()) {
+        //    return {0.0, 0.0, 0.0};
+        //};
+
+        //if(denom_2 < std::numeric_limits<float>::epsilon() && denom_2 > -std::numeric_limits<float>::epsilon()) {
+        //    return {0.0, 0.0, 0.0};
+        //};
+
+        float fy = ((G*M_PI*std::pow(tube_radius,2)) *
                     ((c / std::sqrt(std::pow(a, 2) + std::pow(c, 2))) - (b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
                     ) / a;
-        float fy = (G*M_PI*std::pow(tube_radius,2)) *
+        float fx = (G*M_PI*std::pow(tube_radius,2)) *
                     ((1 / std::sqrt(std::pow(a, 2) + std::pow(b, 2))) - (1 / std::sqrt(std::pow(a, 2) + std::pow(c, 2))));
 
-        glm::vec3 force{fx, -fy, 0};
-        // std::cout << "RELATIVE FORCE " << force.x << " " << force.y << std::endl;
+        fy = -fy; //change fy sign
+
+        // p in mezzo, incrementare fy
+        if(p.z > t.t1.z && p.z < t.t2.z) {
+            fy -= 2.f * ((G*M_PI*std::pow(tube_radius,2)) *
+                    ((b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
+                    ) / a;
+        }
+
+        // potenzialmente da togliere per ridondanza, comunque rende l'algoritmo che usa questa funzione
+        // più robusto
+        if(isnan(fx) || isnan(fy)) return {0.0, 0.0, 0.0};
+
+        //std::cout << "RELATIVE FORCE " << force.x << " " << force.y << std::endl;
         /*
         std::cout << "x axis: " << x.x << " " << x.y << " " << x.z << std::endl;
         std::cout << "y axis: " << y.x << " " << y.y << " " << y.z << std::endl;
         std::cout << "z axis: " << z.x << " " << z.y << " " << z.z << std::endl;
         */
-        return glm::transpose(glm::mat3{x, y, z}) * force + o;
+
+        return glm::mat3{x, y, z} * glm::vec3{fx, fy, 0};
     }
 
     glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
-    glm::vec3 get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point);
+    glm::vec3 get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point, int resolution, const std::vector<glm::vec3>& vertices);
+
+    glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float R, glm::vec3 point);
     glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point);
 
     // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point

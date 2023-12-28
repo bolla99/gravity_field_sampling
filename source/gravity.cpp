@@ -66,6 +66,30 @@ std::vector<gravity::tube> gravity::get_tubes(
     return tubes;
 }
 
+std::vector<gravity::mass> gravity::get_masses_from_tube(tube t, int resolution, const std::vector<glm::vec3>& vertices) {
+    auto cube_edge = util::get_xy_plane_edge_from_mesh(vertices) / (float)resolution;
+    auto cube_volume = (float)std::pow(cube_edge, 3);
+
+    float units_per_tubef, new_cube_volume;
+    int units_per_tube;
+
+    // TUBE LENGTH / UNIT
+    units_per_tubef = glm::length(t.t2 - t.t1) / cube_edge;
+    // ROUNDED
+    units_per_tube = (int) std::round((double) units_per_tubef);
+    // NEW CUBE MASS
+    new_cube_volume = (cube_volume * units_per_tubef) / (float) units_per_tube;
+
+    // TUBE VERTEX OFFSET
+    float tube_unit = glm::length(t.t2 - t.t1) / (float) units_per_tube;
+
+    std::vector<gravity::mass> masses(units_per_tube);
+
+    for (int n = 0; n < units_per_tube + 1; n++) {
+        masses.push_back({t.t1 + glm::normalize(t.t2 - t.t1) * (float) n * tube_unit, new_cube_volume});
+    }
+    return masses;
+}
 
 std::vector<gravity::mass> gravity::get_masses(
         const std::vector<glm::vec3>& vertices,
@@ -209,12 +233,33 @@ glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices
     return gravity;
 }
 
-glm::vec3 gravity::get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point) {
-    glm::vec3 force{};
-    for(auto t : tubes) {
-        force += gravity::get_gravity_from_tube(point, t, G, R);
+// da parallelizzare con std::threads
+glm::vec3 gravity::get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point, int resolution, const std::vector<glm::vec3>& vertices) {
+    omp_set_num_threads(omp_get_max_threads());
+    glm::vec3 thread_gravity[omp_get_max_threads()];
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        thread_gravity[i] = {0, 0, 0};
     }
-    return force;
+    glm::vec3 force_from_integral{};
+
+#pragma omp parallel for default(none) shared(tubes, point, G, thread_gravity, R)
+    for(auto t : tubes) {
+        thread_gravity[omp_get_thread_num()] += gravity::get_gravity_from_tube(point, t, G, R);;
+    }
+    for(int i = 0; i < omp_get_max_threads(); i++) force_from_integral += thread_gravity[i];
+    return force_from_integral;
+}
+
+glm::vec3 gravity::get_gravity_from_mass(gravity::mass m, float G, float R, glm::vec3 point) {
+    glm::vec3 dir = m.p - point;
+    auto r3 = (float)pow(glm::length(dir), 3);
+    if(glm::length(dir) < R) {
+        r3 = (float)std::pow(R, 3);
+    }
+    if (r3 > -std::numeric_limits<float>::epsilon() && r3 < std::numeric_limits<float>::epsilon()) {
+        return {0.0, 0.0, 0.0};
+    }
+    return (dir * m.m * G) / r3;
 }
 
 glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point) {
