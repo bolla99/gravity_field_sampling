@@ -71,8 +71,8 @@ int main(int argv, char** args) {
     std::cout << "test vectors are p equal" << util::vectors_are_p_equal(v1, v2, 0.1);
 
     auto force = gravity::get_gravity_from_tube(
-        glm::vec3{0, 0, 0},
-        gravity::tube{{2, 2, -1}, {1, 1, 1}},
+        glm::vec3{2, 2, 0},
+        gravity::tube{{1, 1, 1}, {1, 1, 2}},
             10.f,
             0.1f
             );
@@ -408,14 +408,17 @@ int main(int argv, char** args) {
             if(ImGui::Button("calculate gravity with masses")) {
                 Timer t{};
                 t.log();
-                std::cout << "MASS RADIUS BEFORE CALLING GET GRAVITY: " << mass_R << std::endl;
+                //std::cout << "MASS RADIUS BEFORE CALLING GET GRAVITY: " << mass_R << std::endl;
                 gravity = gravity::get_gravity_from_masses(masses, 10, mass_R, glm::make_vec3(potential_point));
                 t.log();
+            }
+            if(ImGui::Button("calculate gravity with tubes")) {
+                gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("calculate gravity with tubes integral")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::get_gravity_from_tubes_with_integral(tubes, 10, mass_R, glm::make_vec3(potential_point));
+                gravity = gravity::get_gravity_from_tubes_with_integral(tubes, 10, mass_R, glm::make_vec3(potential_point), gravity_resolution, msh.get_vertices());
                 t.log();
             }
 
