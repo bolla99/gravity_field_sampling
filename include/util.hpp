@@ -40,6 +40,13 @@ namespace util {
     // returns a point which has the maximum coordinate along the three axis
     glm::vec3 get_max(const std::vector<glm::vec3>& vertices);
 
+    inline float get_xy_plane_edge_from_mesh(const std::vector<glm::vec3>& vertices) {
+        return std::max(
+            util::get_max(vertices).x - util::get_min(vertices).x,
+            util::get_max(vertices).y - util::get_min(vertices).y
+            );
+    }
+
     // return an array of 4 floats; 3 first values are coordinates of the center of the cube
     // the fourth float is the edge length
     inline std::array<float, 4> get_box(const glm::vec3& min, const glm::vec3& max) {
