@@ -234,7 +234,7 @@ glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices
 }
 
 // da parallelizzare con std::threads
-glm::vec3 gravity::get_gravity_from_tubes_with_integral(const std::vector<gravity::tube>& tubes, float G, float R, glm::vec3 point, int resolution, const std::vector<glm::vec3>& vertices) {
+glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R) {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
@@ -456,33 +456,64 @@ float gravity::volume(
     return volume;
 }
 
-int gravity::build_octree(
+void gravity::build_octree(
     float precision,
     std::vector<node>& octree,
     int id,
-    int next_id,
     int max_res,
     glm::vec3 min,
     float edge,
     const std::vector<glm::vec3>& gravity,
     const std::vector<glm::vec3>& space, int resolution,
     const std::vector<glm::vec3>& vertices,
-    const std::vector<glm::vec<3, unsigned int>>& faces
+    const std::vector<glm::vec<3, unsigned int>>& faces,
+    const std::vector<tube>& tubes,
+    float G, float R
     ) {
-    if(!util::is_box_inside_mesh(util::get_box(min, edge), vertices, faces)
-        && should_divide(precision, octree[id], min, edge, gravity, space, resolution)
-        && max_res > 0
-        ) {
+    if(should_divide(precision, octree[id], min, edge, gravity, space, resolution) && max_res > 0) {
+        // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
+        // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
+        octree[id].first_child_id = static_cast<int>(octree.size());
+        delete octree[id].gravity_octant;
+        octree[id].gravity_octant = nullptr;
+
         max_res--;
         auto min_box = util::get_box(min, edge/2.0f);
         for(int i = 0; i < 8; i++) {
-            octree.push_back(gravity::build_node(min_box[i], edge/2.0f, gravity, space, resolution));
+            octree.push_back(build_node(min_box[i], edge/2.0f, gravity, space, resolution));
         }
-        int new_id = next_id;
-        int new_next_id = next_id + 8;
+
         for(int i = 0; i < 8; i++) {
-            new_next_id = build_octree(precision, octree, new_id + i, new_next_id, max_res, min_box[i], edge/2.0f, gravity, space, resolution, vertices, faces);
+            build_octree(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, gravity, space, resolution, vertices, faces, tubes, G, R);
         }
     }
-    return next_id;
+}
+
+void gravity::build_octree_with_integral(
+    float precision,
+    std::vector<node>& octree,
+    int id,
+    int max_res,
+    glm::vec3 min,
+    float edge,
+    const std::vector<tube>& tubes,
+    float G, float R
+    ) {
+    if(should_divide_with_integral(precision, octree[id], min, edge, tubes, G, R) && max_res > 0) {
+        // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
+        // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
+        octree[id].first_child_id = static_cast<int>(octree.size());
+        delete octree[id].gravity_octant;
+        octree[id].gravity_octant = nullptr;
+
+        max_res--;
+        auto min_box = util::get_box(min, edge/2.0f);
+        for(int i = 0; i < 8; i++) {
+            octree.push_back(build_node_with_integral(min_box[i], edge/2.0f, tubes, G, R));
+        }
+
+        for(int i = 0; i < 8; i++) {
+            build_octree_with_integral(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, tubes, G, R);
+        }
+    }
 }
