@@ -418,7 +418,7 @@ int main(int argv, char** args) {
             if(ImGui::Button("calculate gravity with tubes integral")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::get_gravity_from_tubes_with_integral(tubes, 10, mass_R, glm::make_vec3(potential_point), gravity_resolution, msh.get_vertices());
+                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, 10, mass_R);
                 t.log();
             }
 
@@ -500,23 +500,16 @@ int main(int argv, char** args) {
             float precision;
             ImGui::SliderFloat("octree precision", &precision, 0.f, 1.f);
             if(ImGui::Button("test new octree")) {
-                gravity::node n = gravity::build_node(
+                gravity::node n = gravity::build_node_with_integral(
                     discrete_space.front(),
                     abs(discrete_space.front().x - discrete_space.back().x),
-                    gpu_output_gravity,
-                    discrete_space,
-                    gravity_resolution
+                    tubes, 10, mass_R
                     );
                 auto octree = std::vector<gravity::node>();
                 octree.push_back(n);
-                gravity::build_octree(precision, octree, 0, 1, octree_depth,
+                gravity::build_octree_with_integral(precision, octree, 0, octree_depth,
                      discrete_space.front(),
-                    abs(discrete_space.front().x - discrete_space.back().x),
-                    gpu_output_gravity,
-                    discrete_space,
-                    gravity_resolution,
-                    msh.get_vertices(),
-                    msh.get_faces());
+                    abs(discrete_space.front().x - discrete_space.back().x), tubes, 10, mass_R);
 
                 std::cout << "octree size: " << octree.size() << std::endl;
             }
