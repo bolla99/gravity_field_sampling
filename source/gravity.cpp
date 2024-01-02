@@ -464,11 +464,7 @@ void gravity::build_octree(
     glm::vec3 min,
     float edge,
     const std::vector<glm::vec3>& gravity,
-    const std::vector<glm::vec3>& space, int resolution,
-    const std::vector<glm::vec3>& vertices,
-    const std::vector<glm::vec<3, unsigned int>>& faces,
-    const std::vector<tube>& tubes,
-    float G, float R
+    const std::vector<glm::vec3>& space, int resolution
     ) {
     if(should_divide(precision, octree[id], min, edge, gravity, space, resolution) && max_res > 0) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
@@ -484,7 +480,7 @@ void gravity::build_octree(
         }
 
         for(int i = 0; i < 8; i++) {
-            build_octree(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, gravity, space, resolution, vertices, faces, tubes, G, R);
+            build_octree(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, gravity, space, resolution);
         }
     }
 }

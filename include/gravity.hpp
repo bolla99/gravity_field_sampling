@@ -317,11 +317,7 @@ namespace gravity {
         glm::vec3 min,
         float edge,
         const std::vector<glm::vec3>& gravity,
-        const std::vector<glm::vec3>& space, int resolution,
-        const std::vector<glm::vec3>& vertices,
-        const std::vector<glm::vec<3, unsigned int>>& faces,
-        const std::vector<tube>& tubes,
-        float G, float R
+        const std::vector<glm::vec3>& space, int resolution
         );
 
     void build_octree_with_integral(
