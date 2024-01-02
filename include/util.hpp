@@ -90,10 +90,10 @@ namespace util {
         return output;
     }
 
-    inline bool vectors_are_p_equal(glm::vec3 v1, glm::vec3 v2, float p) {
-        return  (v1.x > (v2.x - v2.x * p) && v1.x < (v2.x + v2.x * p)) &&
-                (v1.y > (v2.y - v2.y * p) && v1.y < (v2.y + v2.y * p)) &&
-                (v1.z > (v2.z - v2.z * p) && v1.z < (v2.z + v2.z * p));
+    // absolute comparison
+    // precision -> max length of (v1 - v2 vector) allowed
+    inline bool vectors_are_p_equal(glm::vec3 v1, glm::vec3 v2, float precision) {
+        return glm::length(v1 - v2) < precision;
     }
 
     bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
