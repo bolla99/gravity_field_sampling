@@ -22,8 +22,9 @@ namespace util {
 
     float point_edge_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
     float point_triangle_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
+
     float tetrahedron_volume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
-    glm::vec3 tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+    [[deprecated]] glm::vec3 tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
 
     bool ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
     [[maybe_unused]] std::vector<glm::vec3> ray_mesh_intersections(const std::vector<glm::vec3>& vertices,
@@ -40,7 +41,8 @@ namespace util {
     // returns a point which has the maximum coordinate along the three axis
     glm::vec3 get_max(const std::vector<glm::vec3>& vertices);
 
-    inline float get_xy_plane_edge_from_mesh(const std::vector<glm::vec3>& vertices) {
+    // returns mesh max extent on xy plane
+    inline float xy_mesh_max_extent(const std::vector<glm::vec3>& vertices) {
         return std::max(
             util::get_max(vertices).x - util::get_min(vertices).x,
             util::get_max(vertices).y - util::get_min(vertices).y
@@ -51,14 +53,12 @@ namespace util {
     // the fourth float is the edge length
     inline std::array<float, 4> get_box(const glm::vec3& min, const glm::vec3& max) {
         auto center = (max + min) * 0.5f;
-        float x_width = max.x - min.x;
-        float y_width = max.y - min.y;
-        float z_width = max.z - min.z;
-        float max_extent = x_width;
-        if (y_width > max_extent) max_extent = y_width;
-        if (z_width > max_extent) max_extent = z_width;
-        return {center.x, center.y, center.z, max_extent};
+        float edge = std::max(max.x - min.x, max.y - min.y);
+        edge = std::max(edge, max.z - min.z);
+        return {center.x, center.y, center.z, edge};
     }
+
+    // implicit definition of box as std::array<glm::vec3, 8>
     inline std::array<glm::vec3, 8> get_box(const glm::vec3& min, float edge) {
         return {
             glm::vec3{min.x, min.y, min.z},
@@ -72,6 +72,14 @@ namespace util {
         };
     }
 
+    // box: first 3 floats are the center of the box, fourth is the edge
+    inline std::array<glm::vec3, 8> get_box(const std::array<float, 4>& box) {
+        return get_box(
+            glm::vec3{box[0] - box[3] / 2.f, box[1] - box[3] / 2.f, box[2] - box[3] / 2.f},
+            box[3]
+            );
+    }
+
     // allows to select a bounding box of a point from a 3d space vector
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
 
@@ -81,10 +89,10 @@ namespace util {
 
     // cube geometry
     // pre requisite: p is inside cube
-    std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
+    std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
 
-    inline glm::vec3 interpolate(const glm::vec3& p, const std::array<glm::vec3, 8>& cube, const std::array<glm::vec3, 8> values) {
-        auto weights = trilinear_coordinates(p, cube);
+    inline glm::vec3 interpolate(const glm::vec3& p, const std::array<glm::vec3, 8>& box, const std::array<glm::vec3, 8> values) {
+        auto weights = trilinear_coordinates(p, box);
         auto output = glm::vec3{};
         for(int i = 0; i < 8; i++) { output += values[i]*weights[i]; }
         return output;
@@ -96,11 +104,8 @@ namespace util {
         return glm::length(v1 - v2) < precision;
     }
 
-    bool is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube);
-    bool is_box_inside_mesh(std::array<glm::vec3, 8> cube, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces);
-
-    // DEBUG PRINT
-    void print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity);
+    bool is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
+    bool is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces);
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP

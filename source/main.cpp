@@ -68,17 +68,6 @@ std::string loadMetalShader(const std::string& path);
 // ******************************************************** //
 int main(int argv, char** args) {
     std::cout << "NUMERIC LIMIT" <<  std::numeric_limits<float>::epsilon();
-    auto v1 = glm::vec3{1, 1, 1};
-    auto v2 = glm::vec3{1.12, 1.09, 1.09};
-    std::cout << "test vectors are p equal" << util::vectors_are_p_equal(v1, v2, 0.1);
-
-    auto force = gravity::get_gravity_from_tube(
-        glm::vec3{2, 2, 0},
-        gravity::tube{{1, 1, 1}, {1, 1, 2}},
-            10.f,
-            0.1f
-            );
-    std::cout << "FORCE FROM TUBE " << force.x << " " << force.y << " " << force.z << std::endl;
 
     // SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -216,7 +205,8 @@ int main(int argv, char** args) {
     int gravity_resolution = 32;
 
     // mass radius
-    float mass_R;
+    float sphere_R;
+    float cylinder_R;
 
     // G constant
     float G = 10;
@@ -411,113 +401,62 @@ int main(int argv, char** args) {
 
             if(ImGui::Button("set up masses")) {
                 masses.erase(masses.begin(), masses.end());
-                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
-                std::cout << "MASS RADIUS: " << mass_R << std::endl;
+                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &sphere_R);
             }
             if(ImGui::Button("set up tubes")) {
                 tubes.erase(tubes.begin(), tubes.end());
-                tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &mass_R);
-                std::cout << "MASS RADIUS: " << mass_R << std::endl;
+                tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &cylinder_R);
             }
             if(ImGui::Button("calculate gravity with masses")) {
-                Timer t{};
-                t.log();
-                //std::cout << "MASS RADIUS BEFORE CALLING GET GRAVITY: " << mass_R << std::endl;
-                gravity = gravity::get_gravity_from_masses(masses, 10, mass_R, glm::make_vec3(potential_point));
-                t.log();
+                gravity = gravity::get_gravity_from_masses(masses, 10, sphere_R, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("calculate gravity with tubes")) {
                 gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
             }
             if(ImGui::Button("calculate gravity with tubes integral")) {
-                Timer t{};
-                t.log();
-                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, G, mass_R);
-                t.log();
+                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, G, cylinder_R);
             }
-
-            /*
-            ImGui::InputFloat("tetrahedrons gravity scale", &tetrahedrons_gravity_scale);*/
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
-                Timer t{};
-                t.log();
-                //auto masses_as_float = &(masses.front());
                 std::vector<glm::vec3> space = gravity::get_discrete_space(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution);
-                /*for (int i = 0; i < 30; i++) {
-                    std::cout << i << " space {" << space[i].x << " " << space[i].y << " " << space[i].z << "}" << std::endl;
-                }*/
                 auto space_as_float = glm::value_ptr(space.front());
                 float *output_gravity = GPUComputing::get_gravity_from_point_masses_and_discrete_space(
                         glm::value_ptr(masses.front().p),
                         masses.size() * sizeof(gravity::mass),
                         space_as_float,
                         space.size() * sizeof(glm::vec3),
-                        mass_R
+                        sphere_R
                         );
                 std::vector<glm::vec3> output_gravity_as_glm_vec{};
                 int k = 0;
                 for(int i = 0; i < space.size(); i++) {
-                    if(i < 30)
-                    std::cout << "inserting gravity " << i << " : " << output_gravity[k] << " " << output_gravity[k+1] << " " << output_gravity[k+1] << std::endl;
                     output_gravity_as_glm_vec.emplace_back(output_gravity[k], output_gravity[k+1], output_gravity[k+2]);
                     k += 3;
                 }
                 discrete_space = space;
                 gpu_output_gravity = output_gravity_as_glm_vec;
-                /*for (int i = 0; i < gpu_output_gravity.size(); i++) {
-                    std::cout << i << " gravity {" << gpu_output_gravity[i].x << " " << gpu_output_gravity[i].y << " " << gpu_output_gravity[i].z << "}" << std::endl;
-                }*/
-                t.log();
-            }/*
-            if(ImGui::Button("test discrete space as octree")) {
-                Timer timer{};
-                timer.log();
-                auto o = gravity::getDiscreteSpaceAsOctree(util::getMin(mesh.getVertices()), util::getMax(mesh.getVertices()), gravity_resolution);
-                std::cout << "is leaf?: " << (o->isLeaf() ? "true" : "false") << std::endl;
-                std::cout << "size of octree: " << o->bytesize() << std::endl;
-                delete o;
-
-                // test trilinear interpolation
-                std::array<glm::vec3, 8> cube = {glm::vec3{-1.0, -1.0, -1.0},
-                                                 glm::vec3{1.0, -1.0, -1.0},
-                                                 glm::vec3{-1.0, 1.0, -1.0},
-                                                 glm::vec3{1.0, 1.0, -1.0},
-                                                 glm::vec3{-1.0, -1.0, 1.0},
-                                                 glm::vec3{1.0, -1.0, 1.0},
-                                                 glm::vec3{-1.0, 1.0, 1.0},
-                                                 glm::vec3{1.0, 1.0, 1.0}};
-                std::cout << "il punto è nel cubo? " << (util::isInsideCube(glm::make_vec3(potential_point), cube) ? "true\n" : "false\n");
-                std::array<float, 8> trilinear_coords = util::trilinearCoordinates(glm::make_vec3(potential_point), cube);
-                for(int i = 0; i < 8; i++) {
-                    std::cout << "trilinear coords " << i << ": " << trilinear_coords[i] << std::endl;
-                }
-                auto oct = gravity::get_gravity_octree_from_masses(util::get_min(msh.get_vertices()), util::get_max(msh.get_vertices()), gravity_resolution, masses);
-                timer.log();
-            }*/
+            }
 
             if(ImGui::Button("compute gravity from gpu vector")) {
-                Timer t{};
-                t.log();
                 gravity = gravity::get_gravity_from_1D_precomputed_vector(
                     glm::make_vec3(potential_point),
                     gpu_output_gravity,
                     discrete_space,
                     gravity_resolution
                     );
-                t.log();
             }
 
 
-
+            // REAL TIME
             //if(ImGui::Button("compute gravity with tubes integral and GPU")) {
                 //Timer t1{};
                 //Timer t2{};
                 //t1.log();
                 //t2.log();
-                if(tubes.size() > 0) {
-                    //update transformed_tubes size
+                if(!tubes.empty()) {
+                    // clear and update transformed_tubes size
+                    // transformed tubes is used for tubes debug representation
                     transformed_tubes.clear();
                     transformed_tubes.resize(tubes.size());
                     // update tubes
@@ -528,7 +467,7 @@ int main(int argv, char** args) {
 
                     auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{potential_point[0], potential_point[1], potential_point[2], 1};
 
-                    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), mass_R, G);
+                    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), cylinder_R, G);
                     //t1.log();
 
                     glm::vec3 output_gravity{0.f, 0.f, 0.f};
@@ -567,13 +506,13 @@ int main(int argv, char** args) {
                 gravity::node n = gravity::build_node_with_integral(
                     glm::make_vec3(min),
                     edge,
-                    tubes, 10, mass_R
+                    tubes, 10, sphere_R
                     );
                 auto octree = std::vector<gravity::node>();
                 octree.push_back(n);
                 gravity::build_octree_with_integral(precision, octree, 0, octree_depth,
                      glm::make_vec3(min),
-                    edge, tubes, 10, mass_R);
+                    edge, tubes, 10, sphere_R);
 
                 std::cout << "octree size: " << octree.size() << std::endl;
             }
@@ -751,7 +690,7 @@ int main(int argv, char** args) {
         glDrawArrays(GL_LINES, 4, 2);
 
         // TUBES DRAW
-        if(tubes.size() > 0 && showTubes) {
+        if(!tubes.empty() && showTubes) {
             glBufferData(GL_ARRAY_BUFFER, transformed_tubes.size() * 6 * sizeof(float), glm::value_ptr(transformed_tubes.front().t1), GL_DYNAMIC_DRAW);
             glDrawArrays(GL_LINES, 0, transformed_tubes.size() * 2);
         }

@@ -27,12 +27,12 @@ namespace gravity {
     struct tetrahedron {
         glm::vec3 b1, b2, b3, v;
     };
-    struct cube {
+    struct box {
         glm::vec3 center;
-        float extent;
+        float edge;
     };
     struct gravity_cube {
-        gravity::cube c;
+        box b;
         std::array<glm::vec3, 8> g;
     };
 
@@ -40,7 +40,7 @@ namespace gravity {
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
             int resolution,
-            float* mass_R
+            float* cylinder_R
             );
     std::vector<mass> get_masses_from_tube(tube t, int resolution, const std::vector<glm::vec3>& vertices);
 
@@ -48,11 +48,11 @@ namespace gravity {
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
             int resolution,
-            float* mass_R
+            float* sphere_R
             );
 
     // for tubes parallel to z axis
-    inline glm::vec3 get_gravity_from_tube(glm::vec3 p, tube t, float G, float tube_radius) {
+    inline glm::vec3 get_gravity_from_tube(glm::vec3 p, tube t, float G, float cylinder_R) {
         // t1 -> p
         auto t1_p = p - t.t1;
 
@@ -60,9 +60,10 @@ namespace gravity {
         auto x = glm::normalize(t.t2 - t.t1);
         if(glm::distance2(t.t2, p) < glm::distance2(t.t1, p))
             x = glm::normalize(t.t1 - t.t2);
+
         // new coordinate system origin
         auto o = t.t1 + x * glm::dot(x, t1_p);
-        //std::cout << "ORIGIN " << o.x << " " << o.y << " " << o.z << std::endl;
+
         // new coordinate system y and z axis
         auto y = glm::normalize(p - o);
         auto z = glm::normalize(glm::cross(x, y));
@@ -75,7 +76,7 @@ namespace gravity {
         //};
         // punto dentro al cilindro -> da gestire
 
-        if(a < tube_radius) return {0.0, 0.0, 0.0};
+        if(a < cylinder_R) return {0.0, 0.0, 0.0};
         auto b = glm::distance(t.t1, o);
         auto c = glm::distance(t.t2, o);
 
@@ -95,17 +96,17 @@ namespace gravity {
         //    return {0.0, 0.0, 0.0};
         //};
 
-        float fy = ((G*M_PI*std::pow(tube_radius,2)) *
+        float fy = ((G*M_PI*std::pow(cylinder_R,2)) *
                     ((c / std::sqrt(std::pow(a, 2) + std::pow(c, 2))) - (b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
                     ) / a;
-        float fx = (G*M_PI*std::pow(tube_radius,2)) *
+        float fx = (G*M_PI*std::pow(cylinder_R,2)) *
                     ((1 / std::sqrt(std::pow(a, 2) + std::pow(b, 2))) - (1 / std::sqrt(std::pow(a, 2) + std::pow(c, 2))));
 
         fy = -fy; //change fy sign
 
         // p in mezzo, incrementare fy
         if(p.z > t.t1.z && p.z < t.t2.z) {
-            fy -= 2.f * ((G*M_PI*std::pow(tube_radius,2)) *
+            fy -= 2.f * ((G*M_PI*std::pow(cylinder_R,2)) *
                     ((b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
                     ) / a;
         }
@@ -114,21 +115,14 @@ namespace gravity {
         // più robusto
         if(isnan(fx) || isnan(fy)) return {0.0, 0.0, 0.0};
 
-        //std::cout << "RELATIVE FORCE " << force.x << " " << force.y << std::endl;
-        /*
-        std::cout << "x axis: " << x.x << " " << x.y << " " << x.z << std::endl;
-        std::cout << "y axis: " << y.x << " " << y.y << " " << y.z << std::endl;
-        std::cout << "z axis: " << z.x << " " << z.y << " " << z.z << std::endl;
-        */
-
         return glm::mat3{x, y, z} * glm::vec3{fx, fy, 0};
     }
 
-    glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<gravity::tube>& tubes, glm::vec3 point);
-    glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R);
+    glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<tube>& tubes, glm::vec3 point);
+    glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
-    glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float R, glm::vec3 point);
-    glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float R, glm::vec3 point);
+    glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point);
+    glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float sphere_R, glm::vec3 point);
 
     // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point
     // space and gravity vector are meant to be precomputed during a non real-time phase, while
@@ -143,11 +137,6 @@ namespace gravity {
 
     // vettore monodimensionale for(x) {for(y) {for(z)}}}
     std::vector<glm::vec3> get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution);
-
-    glm::vec3 get_gravity_RT(
-            const std::vector<glm::vec3>& vertices,
-            const std::vector<glm::vec<3, unsigned int>>& faces, int resolution, glm::vec3 point
-    );
 
     float volume(
             const std::vector<glm::vec3>& vertices,

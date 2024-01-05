@@ -60,7 +60,6 @@ glm::vec3 util::barycentric_coords(const glm::vec3& a, const glm::vec3& b, const
 }
 
 float util::point_edge_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2) {
-    //std::cout << "Running point edge distance for point: " << point.toString() << " and edge: " << e1.toString() << " - " << e2.toString() << "\n";
     glm::vec3 e1e2 = e2 - e1;
     glm::vec3 e1point = point - e1;
     float e1e2mag2 = glm::length2(e1e2);
@@ -69,12 +68,11 @@ float util::point_edge_distance(const glm::vec3& point, const glm::vec3& e1, con
     // CLAMP
     if(pos < 0) pos = 0;
     if(pos > 1) pos = 1;
-    //std::cout << "point edge distance " << (point - (e2*pos + e1*(1-pos))).mag() << "\n";
+
     return glm::length(point - (e2*pos + e1*(1-pos)));
 }
 
 float util::point_triangle_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3) {
-    //std::cout << "Running point triangle distance for face with vertices: " << e1.toString() << e2.toString() << e3.toString() << "\n";
     glm::vec3 e12 = e2 - e1;
     glm::vec3 e13 = e3 - e1;
     glm::vec3 e1point = point - e1;
@@ -90,8 +88,7 @@ float util::point_triangle_distance(const glm::vec3& point, const glm::vec3& e1,
     glm ::vec3 pointProjected = e1*alpha + e2*beta + e3*gamma;
 
     float semispace = glm::dot((point - pointProjected), n);
-    float semispace_sign;
-    if(semispace >= 0) semispace_sign = 1;
+    float semispace_sign = 1;
     if(semispace < 0) semispace_sign = -1;
     if(alpha >= 0 && beta >= 0 && gamma >= 0) return glm::length(point - pointProjected) * semispace_sign;
     else if(alpha < 0) return point_edge_distance(point, e2, e3) * semispace_sign;
@@ -219,6 +216,7 @@ glm::vec3 util::get_min(const std::vector<glm::vec3>& vertices) {
     }
     return min;
 }
+
 glm::vec3 util::get_max(const std::vector<glm::vec3>& vertices) {
     glm::vec3 max = vertices[0];
     for(int i = 1; i < vertices.size(); i++) {
@@ -233,11 +231,13 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     auto x_extent = point.x - min.x;
     auto y_extent = point.y - min.y;
     auto z_extent = point.z - min.z;
+
     auto unit = range / (float)resolution;
+
     auto x_i = x_extent / unit;
     auto y_i = y_extent / unit;
     auto z_i = z_extent / unit;
-    //std::cout << "get_box_indices debug: " << x_i << " " << y_i << " " << z_i << std::endl;
+
     int floor_x = floor(x_i);
     int floor_y = floor(y_i);
     int floor_z = floor(z_i);
@@ -253,43 +253,31 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     };
 }
 
-std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
-    // std::cout << "is point inside cube? " << util::is_inside_cube(p, cube);
+std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
-        volume_per_corner[i] = abs(cube[i].x - p.x)*abs(cube[i].y - p.y)*abs(cube[i].z - p.z);
+        volume_per_corner[i] = abs(box[i].x - p.x)*abs(box[i].y - p.y)*abs(box[i].z - p.z);
     }
     // sort values
     // octant semantic is --- +-- -+- ++- --+ +-+ -++ +++
     std::array<float, 8> coords{};
-    float volume = abs(cube[7].x - cube[0].x)*abs(cube[7].y - cube[0].y)*abs(cube[7].z - cube[0].z);
+    float volume = abs(box[7].x - box[0].x)*abs(box[7].y - box[0].y)*abs(box[7].z - box[0].z);
     for(int i = 0; i < 8; i++) {
         coords[i] = volume_per_corner[7 - i] / volume;
     }
-    /*std::cout << "trilinear coordinates: " << std::endl;
-    for(int i = 0; i < 8; i++) {
-        std::cout << coords[i] << std::endl;
-    }*/
     return coords;
 }
 
-bool util::is_inside_cube(const glm::vec3& p, const std::array<glm::vec3, 8>& cube) {
-    return p.x >= cube[0].x && p.y >= cube[0].y && p.z >= cube[0].z &&
-           p.x <= cube[7].x && p.y <= cube[7].y && p.z <= cube[7].z;
+bool util::is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
+    return p.x >= box[0].x && p.y >= box[0].y && p.z >= box[0].z &&
+           p.x <= box[7].x && p.y <= box[7].y && p.z <= box[7].z;
 }
 
-bool util::is_box_inside_mesh(std::array<glm::vec3, 8> cube, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces) {
+bool util::is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces) {
     for(int i = 0; i < 4; i++) {
-        auto intersections = ray_mesh_intersections(vertices, faces, cube[i], cube[7 - i] - cube[i]);
+        auto intersections = ray_mesh_intersections(vertices, faces, box[i], box[7 - i] - box[i]);
         if(intersections.size() != 1) return false;
-        if(glm::distance(cube[i], intersections[0]) < glm::distance(cube[i], cube[7 - 1])) return false;
+        if(glm::distance(box[i], intersections[0]) < glm::distance(box[i], box[7 - 1])) return false;
     }
     return true;
-}
-
-void util::print_loc_gravity_debug(const std::vector<glm::vec3>& space, const std::vector<glm::vec3>& gravity) {
-    for(int i = 0; i < space.size(); i++) {
-        std::cout << "point: " << space[i].x << " " << space[i].y << " " << space[i].z << std::endl;
-        std::cout << "gravity: " << gravity[i].x << " " << gravity[i].y << " " << gravity[i].z << std::endl;
-    }
 }
