@@ -2,7 +2,7 @@
 #include <metal_relational>
 using namespace metal;
 
-kernel void get_gravity_from_tubes(device float* space,
+kernel void get_gravity_from_tubes(
     device float* tubes,
     device int* n_of_tubes,
     device float* point,
@@ -19,10 +19,10 @@ kernel void get_gravity_from_tubes(device float* space,
         float3 p = float3(point[0], point[1], point[2]);
         float3 t1_p = p - t1;
         float3 x = normalize(t2 - t1);
-        if(distance_squared(t.t2, p) < distance_squared(t.t1, p)) {
+        if(distance_squared(t2, p) < distance_squared(t1, p)) {
             x = normalize(t1 - t2);
         }
-        float3 o = t1 + x * dot(x, t1_p)
+        float3 o = t1 + x * dot(x, t1_p);
         float3 y = normalize(p - o);
         float3 z = normalize(cross(x, y));
 
@@ -46,6 +46,8 @@ kernel void get_gravity_from_tubes(device float* space,
         float fx = (G[0]*PI*pow(R[0],2)) *
                    ((1 / sqrt(pow(a, 2) + pow(b, 2))) - (1 / sqrt(pow(a, 2) + pow(c, 2))));
 
+       if(isnan(fx) || isnan(fy)) return;
+
         fy = -fy;
 
         if(p.z > t1.z && p.z < t2.z) {
@@ -53,8 +55,6 @@ kernel void get_gravity_from_tubes(device float* space,
                             ((b / sqrt(pow(a, 2) + pow(b, 2))))
                             ) / a;
                 }
-
-        if(isnan(fx) || isnan(fy)) return;
 
         float3 output_value = float3x3(x, y, z) * float3(fx, fy, 0.f);
 
