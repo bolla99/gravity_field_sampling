@@ -127,8 +127,19 @@ int main(int argv, char** args) {
     glDepthFunc(GL_LESS); // GL_LESS: minor z passes
 
     // SHADER LOADING
-    shader shdr = shader("../shaders/vs.glsl", "../shaders/fs.glsl");
-    shader tetra_shdr = shader("../shaders/vs_tetra.glsl", "../shaders/fs_tetra.glsl");
+    // this shader is used for meshes; only position is needed; normals are required for lightening
+    // vs.glsl vertex shader support position, vertex color, uv and normals and out attributes
+    // needed by fragment shader for lightening, texture and vertex color
+    // fs.glsl fragment shader support vertex color, texture and lightning
+    // for info about layout attributes and uniforms see glsl source code
+    shader mesh_shader = shader("../shaders/vs_0.glsl", "../shaders/fs_0.glsl");
+
+    // this shader is used for debug representations
+    // vs_tetra.glsl shader support position without model matrix and doesn't pass any data to fragment
+    // shader
+    // fs_tetra.glsl support only color with uniform, no lightening nor texture
+    // used for stuff like lines (axis, tubes), particles,
+    shader debug_shader = shader("../shaders/vs_1.glsl", "../shaders/fs_1.glsl");
 
 
     // CREATE MESH FILE BROWSER
@@ -228,7 +239,7 @@ int main(int argv, char** args) {
     glGenBuffers(1, &rayVBO);
     glGenVertexArrays(1, &rayVAO);
     glBindVertexArray(rayVAO);
-    tetra_shdr.use();
+    debug_shader.use();
     glBindBuffer(GL_ARRAY_BUFFER, rayVBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
@@ -263,8 +274,8 @@ int main(int argv, char** args) {
         glm::vec3 camera_position3 = glm::vec3{cam_position4.x, cam_position4.y, cam_position4.z};
 
         // UPDATE SHADER CAMERA POSITION VALUE FOR SPECULAR LIGHT
-        shdr.use();
-        glUniform3fv(glGetUniformLocation(shdr.programID, "viewerPosition"), 1, glm::value_ptr(camera_position3));
+        mesh_shader.use();
+        glUniform3fv(glGetUniformLocation(mesh_shader.programID, "viewerPosition"), 1, glm::value_ptr(camera_position3));
 
         // MODEL MATRIX
         glm::mat4 model_translation = glm::translate(glm::mat4(1.f), {position[0], position[1], position[2]});
@@ -281,22 +292,22 @@ int main(int argv, char** args) {
         // UPDATE SHADERS
 
         // matrices parameters
-        shdr.use();
-        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
-        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
-        glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(model_matrix));
-        tetra_shdr.use();
-        glUniformMatrix4fv(glGetUniformLocation(tetra_shdr.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
-        glUniformMatrix4fv(glGetUniformLocation(tetra_shdr.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
+        mesh_shader.use();
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(model_matrix));
+        debug_shader.use();
+        glUniformMatrix4fv(glGetUniformLocation(debug_shader.programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection_matrix));
+        glUniformMatrix4fv(glGetUniformLocation(debug_shader.programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view_matrix));
 
         // light parameters
-        shdr.use();
-        glUniform1f(glGetUniformLocation(shdr.programID, "ambientLightIntensity"), ambient_intensity);
-        glUniform3fv(glGetUniformLocation(shdr.programID, "ambientLightColor"), 1, ambient_color);
-        glUniform3fv(glGetUniformLocation(shdr.programID, "diffuseLightColor"), 1, diffuse_color);
-        glUniform3fv(glGetUniformLocation(shdr.programID, "diffuseLightPosition"), 1, diffuse_position);
-        glUniform1f(glGetUniformLocation(shdr.programID, "specularStrenght"), specular_strength);
-        glUniform1i(glGetUniformLocation(shdr.programID, "shininess"), shininess);
+        mesh_shader.use();
+        glUniform1f(glGetUniformLocation(mesh_shader.programID, "ambientLightIntensity"), ambient_intensity);
+        glUniform3fv(glGetUniformLocation(mesh_shader.programID, "ambientLightColor"), 1, ambient_color);
+        glUniform3fv(glGetUniformLocation(mesh_shader.programID, "diffuseLightColor"), 1, diffuse_color);
+        glUniform3fv(glGetUniformLocation(mesh_shader.programID, "diffuseLightPosition"), 1, diffuse_position);
+        glUniform1f(glGetUniformLocation(mesh_shader.programID, "specularStrenght"), specular_strength);
+        glUniform1i(glGetUniformLocation(mesh_shader.programID, "shininess"), shininess);
 
 
           // ******************************************************* //
@@ -539,12 +550,12 @@ int main(int argv, char** args) {
         ImGui::Begin("Texture");
         if(ImGui::Button("OPEN TEXTURE")) texture_browser.Open();
         if(ImGui::Button("SET COLORMODE VERTEX COLOR")) {
-            shdr.use();
-            glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 1);
+            mesh_shader.use();
+            glUniform1i(glGetUniformLocation(mesh_shader.programID, "colorMode"), 1);
         }
         if(ImGui::Button("SET COLORMODE TEXTURE")) {
-            shdr.use();
-            glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 0);
+            mesh_shader.use();
+            glUniform1i(glGetUniformLocation(mesh_shader.programID, "colorMode"), 0);
         }
         if(ImGui::Button("RESET TO DEFAULT TEXTURE")) {
             unsigned char* data = new unsigned char[3];
@@ -598,11 +609,11 @@ int main(int argv, char** args) {
 
             // UPDATE COLORMODE SHADER PARAMETER
             if(msh.has_color()) {
-                shdr.use();
-                glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 1);
+                mesh_shader.use();
+                glUniform1i(glGetUniformLocation(mesh_shader.programID, "colorMode"), 1);
             } else {
-                shdr.use();
-                glUniform1i(glGetUniformLocation(shdr.programID, "colorMode"), 0);
+                mesh_shader.use();
+                glUniform1i(glGetUniformLocation(mesh_shader.programID, "colorMode"), 0);
             }
             mesh_browser.ClearSelected();
 
@@ -645,7 +656,7 @@ int main(int argv, char** args) {
 
         if(!msh.get_vertices().empty()) {
             // pick shader
-            shdr.use();
+            mesh_shader.use();
             // bind VERTEX ARRAY OBJECT
             glBindVertexArray(msh.get_VAO());
             // DRAW
@@ -654,12 +665,12 @@ int main(int argv, char** args) {
 
             glBindVertexArray(arrow.get_VAO());
             // update model matrix
-            glUniformMatrix4fv(glGetUniformLocation(shdr.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrow_model_matrix));
+            glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrow_model_matrix));
             glDrawElements(GL_TRIANGLES, (int)arrow.get_elements().size(), GL_UNSIGNED_INT, nullptr);
         }
 
         // RAY
-        tetra_shdr.use();
+        debug_shader.use();
 
         // make data (two points -> line)
         float ray_data[6] = {origin[0], origin[1], origin[2],
@@ -682,11 +693,11 @@ int main(int argv, char** args) {
                 0.f, 0.f, 0.f, 0.f, 0.f, 10.f
         };
         glBufferData(GL_ARRAY_BUFFER, 18 * sizeof(float), axis, GL_DYNAMIC_DRAW);
-        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0.8, 0, 0, 1);
+        glUniform4f(glGetUniformLocation(debug_shader.programID, "color"), 0.8, 0, 0, 1);
         glDrawArrays(GL_LINES, 0, 2);
-        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0, 0.8, 0, 1);
+        glUniform4f(glGetUniformLocation(debug_shader.programID, "color"), 0, 0.8, 0, 1);
         glDrawArrays(GL_LINES, 2, 2);
-        glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0, 0, 0.8, 1);
+        glUniform4f(glGetUniformLocation(debug_shader.programID, "color"), 0, 0, 0.8, 1);
         glDrawArrays(GL_LINES, 4, 2);
 
         // TUBES DRAW
