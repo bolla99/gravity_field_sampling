@@ -53,6 +53,8 @@
 // image loading
 #include <stb_image.h>
 
+#include <omp.h>
+
   // ******************************************************** //
  // ******************** GLOBAL FUNCTIONS ****************** //
 // ******************************************************** //
@@ -216,9 +218,13 @@ int main(int argv, char** args) {
     // mass radius
     float mass_R;
 
+    // G constant
+    float G = 10;
+
     // masses container
     std::vector<gravity::mass> masses{};
     std::vector<gravity::tube> tubes{};
+    auto transformed_tubes = tubes;
 
     // mesh volume
     float volume = 0.f;
@@ -376,6 +382,10 @@ int main(int argv, char** args) {
         // WIREFRAME - FILL CHOICE
         if(ImGui::Button("WIREFRAME")) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         if(ImGui::Button("FILL")) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        bool showMesh;
+        bool showTubes;
+        ImGui::Checkbox("show mesh", &showMesh);
+        ImGui::Checkbox("show tubes", &showTubes);
 
         // MESH LOADING OPERATIONS
         ImGui::Spacing();ImGui::Spacing();ImGui::Spacing();
@@ -392,7 +402,11 @@ int main(int argv, char** args) {
             ImGui::Begin("GRAVITY PROCESSING");
             ImGui::Text("Volume %f", volume);
 
-            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 256);
+            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 512);
+            ImGui::SliderFloat("G", &G, 0, 100);
+            ImGui::SliderFloat("point x", &potential_point[0], -5, 5);
+            ImGui::SliderFloat("point y", &potential_point[1], -5, 5);
+            ImGui::SliderFloat("point z", &potential_point[2], -5, 5);
             ImGui::InputFloat3("potential point", potential_point);
 
             if(ImGui::Button("set up masses")) {
@@ -418,7 +432,7 @@ int main(int argv, char** args) {
             if(ImGui::Button("calculate gravity with tubes integral")) {
                 Timer t{};
                 t.log();
-                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, 10, mass_R);
+                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, G, mass_R);
                 t.log();
             }
 
@@ -495,21 +509,71 @@ int main(int argv, char** args) {
                 t.log();
             }
 
+
+
+            //if(ImGui::Button("compute gravity with tubes integral and GPU")) {
+                //Timer t1{};
+                //Timer t2{};
+                //t1.log();
+                //t2.log();
+                if(tubes.size() > 0) {
+                    //update transformed_tubes size
+                    transformed_tubes.clear();
+                    transformed_tubes.resize(tubes.size());
+                    // update tubes
+                    for(int i = 0; i < tubes.size(); i++) {
+                        transformed_tubes[i].t1 = model_matrix * glm::vec<4, float>{tubes[i].t1.x, tubes[i].t1.y, tubes[i].t1.z, 1};
+                        transformed_tubes[i].t2 = model_matrix * glm::vec<4, float>{tubes[i].t2.x, tubes[i].t2.y, tubes[i].t2.z, 1};
+                    }
+
+                    auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{potential_point[0], potential_point[1], potential_point[2], 1};
+
+                    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), mass_R, G);
+                    //t1.log();
+
+                    glm::vec3 output_gravity{0.f, 0.f, 0.f};
+                    omp_set_num_threads(omp_get_max_threads());
+                    glm::vec3 thread_gravity[omp_get_max_threads()];
+
+                    for(int i = 0; i < omp_get_max_threads(); i++) {
+                        thread_gravity[i] = {0, 0, 0};
+                    }
+
+
+#pragma omp parallel for default(none) shared(output, thread_gravity, tubes)
+                    for(int i = 0; i < tubes.size(); i++) {
+                        thread_gravity[omp_get_thread_num()] += glm::vec3(output[3*i], output[3*i + 1], output[3*i + 2]);
+                    }
+
+                    for(int i = 0; i < omp_get_max_threads(); i++) {
+                        output_gravity += thread_gravity[i];
+                    }
+                    gravity = output_gravity;
+                    gravity = model_matrix * glm::vec<4, float>{gravity, 1};
+                    //t2.log();
+                    //}
+                }
+
             int octree_depth;
             ImGui::SliderInt("octree max depth", &octree_depth, 0, 10);
             float precision;
             ImGui::SliderFloat("octree precision", &precision, 0.f, 1.f);
+            float min[3];
+            ImGui::InputFloat3("min vertex of gravity sample cube", min);
+            float edge;
+            ImGui::InputFloat("edge of gravity sample cube", &edge);
+
             if(ImGui::Button("test new octree")) {
                 gravity::node n = gravity::build_node_with_integral(
-                    discrete_space.front(),
-                    abs(discrete_space.front().x - discrete_space.back().x),
+                    glm::make_vec3(min),
+                    edge,
                     tubes, 10, mass_R
                     );
                 auto octree = std::vector<gravity::node>();
                 octree.push_back(n);
                 gravity::build_octree_with_integral(precision, octree, 0, octree_depth,
-                     discrete_space.front(),
-                    abs(discrete_space.front().x - discrete_space.back().x), tubes, 10, mass_R);
+                     glm::make_vec3(min),
+                    edge, tubes, 10, mass_R);
 
                 std::cout << "octree size: " << octree.size() << std::endl;
             }
@@ -646,7 +710,8 @@ int main(int argv, char** args) {
             // bind VERTEX ARRAY OBJECT
             glBindVertexArray(msh.get_VAO());
             // DRAW
-            glDrawElements(GL_TRIANGLES, (int)msh.get_elements().size(), GL_UNSIGNED_INT, nullptr);
+            if(showMesh)
+                glDrawElements(GL_TRIANGLES, (int)msh.get_elements().size(), GL_UNSIGNED_INT, nullptr);
 
             glBindVertexArray(arrow.get_VAO());
             // update model matrix
@@ -684,6 +749,12 @@ int main(int argv, char** args) {
         glDrawArrays(GL_LINES, 2, 2);
         glUniform4f(glGetUniformLocation(tetra_shdr.programID, "color"), 0, 0, 0.8, 1);
         glDrawArrays(GL_LINES, 4, 2);
+
+        // TUBES DRAW
+        if(tubes.size() > 0 && showTubes) {
+            glBufferData(GL_ARRAY_BUFFER, transformed_tubes.size() * 6 * sizeof(float), glm::value_ptr(transformed_tubes.front().t1), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_LINES, 0, transformed_tubes.size() * 2);
+        }
 
         // SWAP WINDOWS
         SDL_GL_SwapWindow(window);
