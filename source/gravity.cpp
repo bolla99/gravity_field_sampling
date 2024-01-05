@@ -56,6 +56,10 @@ std::vector<gravity::tube> gravity::get_tubes(
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
+                if(abs(intersections[k].x) > 100 || abs(intersections[k].y) > 100 || abs(intersections[k].z) > 100 ||
+                    abs(intersections[k + 1].x) > 100 || abs(intersections[k + 1].y) > 100 || abs(intersections[k + 1].z) > 100) {
+                    continue;
+                }
                 // TUBE
 #pragma omp critical
                 tubes.push_back({intersections[k], intersections[k + 1]});
