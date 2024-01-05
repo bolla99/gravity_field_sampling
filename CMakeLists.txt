@@ -22,8 +22,8 @@ add_executable(gl_test_project
 		source/shader.cpp
 		source/stb_image.cpp
 		shaders/add.metal
-        shaders/vs.glsl
-        shaders/fs.glsl
+		shaders/vs_0.glsl
+        shaders/fs_0.glsl
 		include/util.hpp
 		source/util.cpp
 		include/gravity.hpp
