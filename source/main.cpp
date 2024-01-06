@@ -59,9 +59,6 @@
  // ******************** GLOBAL FUNCTIONS ****************** //
 // ******************************************************** //
 
-// LOAD FILE AS STRING FOR METAL SHADERS
-std::string loadMetalShader(const std::string& path);
-
 
   // ******************************************************** //
  // ************************** MAIN ************************ //
@@ -151,9 +148,15 @@ int main(int argv, char** args) {
     texture_browser.SetTitle("texture browser");
     texture_browser.SetTypeFilters({".png", ".jpg", ".jpeg"});
 
+
     // CREATE MESH OBJECTS
     mesh msh = mesh();
     mesh arrow = mesh();
+
+    // DEBUG BALL
+    mesh debug_ball = mesh();
+    glm::vec3 debug_ball_velocity{0.f};
+    bool is_gravity_on = false;
 
     // CREATE TEXTURE AND BIND
     unsigned int texture;
@@ -199,6 +202,10 @@ int main(int argv, char** args) {
     float scale = 1.0f;
     float position[3] = {0.0f, 0.0f, 0.0f};
     float rotation[3] = {0.0f, 0.0f, 0.0f};
+
+    // DEBUG BALL MODEL MATRIX PARAMETERS
+    float debug_ball_scale = 1.0f;
+    float debug_ball_position[3] = {0.f, 0.f, 0.f};
 
     // GRAVITY VALUES
 
@@ -285,6 +292,19 @@ int main(int argv, char** args) {
         glm::mat4 model_scale = glm::scale(glm::mat4(1.f), glm::vec3{scale});
         glm::mat4 model_matrix = model_scale * model_translation * model_rotation_z * model_rotation_y * model_rotation_x;
 
+        // update ball position
+        if(is_gravity_on) {
+            debug_ball_position[0] += debug_ball_velocity.x * io.DeltaTime;
+            debug_ball_position[1] += debug_ball_velocity.y * io.DeltaTime;
+            debug_ball_position[2] += debug_ball_velocity.z * io.DeltaTime;
+        }
+
+        glm::mat4 debug_ball_model_translation = glm::translate(
+            glm::mat4(1.f), {debug_ball_position[0], debug_ball_position[1], debug_ball_position[2]}
+            );
+        glm::mat4 debug_ball_model_scale = glm::scale(glm::mat4(1.f), glm::vec3{debug_ball_scale});
+        auto debug_ball_model_matrix = debug_ball_model_translation * debug_ball_model_scale;
+
         glm::mat4 arrow_model_matrix = glm::translate(glm::mat4(1.f), glm::make_vec3(potential_point))
                 * glm::toMat4(util::rotation_between_vectors({0.f, 0.f, -1.f}, glm::normalize(gravity)))
                 * glm::scale(glm::mat4(1.f), {glm::length(gravity) / 100, glm::length(gravity) / 100, glm::length(gravity) / 100});
@@ -321,7 +341,7 @@ int main(int argv, char** args) {
          */
 
         // UPDATE MESH VOLUME
-        volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {2.f, 2.f, 2.f});
+        // volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {2.f, 2.f, 2.f});
 
 
           // ******************************************************* //
@@ -387,15 +407,17 @@ int main(int argv, char** args) {
         bool showTubes;
         ImGui::Checkbox("show mesh", &showMesh);
         ImGui::Checkbox("show tubes", &showTubes);
+        ImGui::Checkbox("gravity on", &is_gravity_on);
+        if(ImGui::Button("reset ball velocity")) debug_ball_velocity = {0.f, 0.f, 0.f};
 
         // MESH LOADING OPERATIONS
         ImGui::Spacing();ImGui::Spacing();ImGui::Spacing();
         if(ImGui::Button("OPEN MESH")) mesh_browser.Open();
         if(!msh.get_vertices().empty()) {
             ImGui::Text("Mesh loaded");
-            if(ImGui::Button("Save Mesh")) {
+            /*if(ImGui::Button("Save Mesh")) {
                 msh.write_on_disk_as_obj("saved_mesh.obj");
-            }
+            }*/
         }
 
         // GRAVITY CALCULATION OPERATIONS
@@ -471,12 +493,13 @@ int main(int argv, char** args) {
                     transformed_tubes.clear();
                     transformed_tubes.resize(tubes.size());
                     // update tubes
+                    /*
                     for(int i = 0; i < tubes.size(); i++) {
                         transformed_tubes[i].t1 = model_matrix * glm::vec<4, float>{tubes[i].t1.x, tubes[i].t1.y, tubes[i].t1.z, 1};
                         transformed_tubes[i].t2 = model_matrix * glm::vec<4, float>{tubes[i].t2.x, tubes[i].t2.y, tubes[i].t2.z, 1};
-                    }
+                    }*/
 
-                    auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{potential_point[0], potential_point[1], potential_point[2], 1};
+                    auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{debug_ball_position[0], debug_ball_position[1], debug_ball_position[2], 1};
 
                     auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), cylinder_R, G);
                     //t1.log();
@@ -499,7 +522,16 @@ int main(int argv, char** args) {
                         output_gravity += thread_gravity[i];
                     }
                     gravity = output_gravity;
-                    gravity = model_matrix * glm::vec<4, float>{gravity, 1};
+                    gravity = model_rotation_z * model_rotation_y * model_rotation_x * glm::vec<4, float>{gravity, 1};
+
+                    if(is_gravity_on) {
+                        debug_ball_velocity[0] += gravity.x * io.DeltaTime;
+                        debug_ball_velocity[1] += gravity.y * io.DeltaTime;
+                        debug_ball_velocity[2] += gravity.z * io.DeltaTime;
+                    }
+
+                    delete output;
+
                     //t2.log();
                     //}
                 }
@@ -582,6 +614,10 @@ int main(int argv, char** args) {
         ImGui::SliderFloat("model scale", &scale, 0.1f, 5.0f);
         ImGui::SliderFloat3("model position", position, -20.0, 20.0);
         ImGui::SliderFloat3("model rotation", rotation, 0.0f, 2.0f * M_PI);
+
+        ImGui::SliderFloat("debug ball scale", &debug_ball_scale, 0.1f, 1.f);
+        ImGui::SliderFloat3("debug ball position", debug_ball_position, -20.0, 20.0);
+        ImGui::InputFloat3("debug_ball_position", debug_ball_position);
         ImGui::End();
 
         // IMGUI TAB FOR LIGHT SETTINGS
@@ -619,6 +655,7 @@ int main(int argv, char** args) {
 
             // LOAD ARROW MESH FOR GRAVITY DEBUG
             arrow.load_from_obj("../resources/arrow.obj");
+            debug_ball.load_from_obj("../resources/ico.obj");
         }
 
         // IF A TEXTURE IS SELECTED
@@ -663,8 +700,11 @@ int main(int argv, char** args) {
             if(showMesh)
                 glDrawElements(GL_TRIANGLES, (int)msh.get_elements().size(), GL_UNSIGNED_INT, nullptr);
 
+            glBindVertexArray(debug_ball.get_VAO());
+            glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(debug_ball_model_matrix));
+            glDrawElements(GL_TRIANGLES, (int)debug_ball.get_elements().size(), GL_UNSIGNED_INT, nullptr);
+
             glBindVertexArray(arrow.get_VAO());
-            // update model matrix
             glUniformMatrix4fv(glGetUniformLocation(mesh_shader.programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(arrow_model_matrix));
             glDrawElements(GL_TRIANGLES, (int)arrow.get_elements().size(), GL_UNSIGNED_INT, nullptr);
         }
@@ -711,13 +751,4 @@ int main(int argv, char** args) {
     }
 
     SDL_Log("quitting gracefully");
-}
-
-
-std::string loadMetalShader(const std::string& path) {
-    std::ifstream file;
-    file.open(path, std::ios::in);
-    std::stringstream ss;
-    ss << file.rdbuf();
-    return ss.str();
 }
