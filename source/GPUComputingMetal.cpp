@@ -94,8 +94,6 @@ float* GPUComputing::get_gravity_from_point_masses_and_discrete_space(const floa
 }
 
 float* GPUComputing::get_gravity_from_tubes_with_integral(const float* tubes, int tubes_size, float* p, float R, float G) {
-    Timer t{};
-    t.log();
     // create autorelease pool
     auto pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
     static NS::String* source = nullptr;
@@ -155,6 +153,5 @@ float* GPUComputing::get_gravity_from_tubes_with_integral(const float* tubes, in
     auto output = (float*)malloc(tubes_size * 3 * sizeof(float));
     memcpy(output, output_buffer->contents(), tubes_size * 3 * sizeof(float));
 
-    t.log();
     return output;
 }
