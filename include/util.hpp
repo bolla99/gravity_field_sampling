@@ -98,6 +98,10 @@ namespace util {
         return output;
     }
 
+    inline glm::vec3 get_gradient(const std::array<float, 6>& values, float h) {
+        return {(values[1] - values[0])/h, (values[3] - values[2])/h, (values[5] - values[4])/h};
+    }
+
     // absolute comparison
     // precision -> max length of (v1 - v2 vector) allowed
     inline bool vectors_are_p_equal(glm::vec3 v1, glm::vec3 v2, float precision) {
