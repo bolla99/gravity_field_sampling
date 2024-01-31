@@ -108,7 +108,7 @@ glm::vec3 util::tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2,
 }
 
 bool util::ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter) {
-    const float EPSILON = 0.0000001;
+    //const float EPSILON = 0.0000001;
     glm::vec3 e1 = t2 - t1;
     glm::vec3 e2 = t3 - t1;
 
@@ -124,12 +124,12 @@ bool util::ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, gl
     float v = glm::determinant(glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z, e1.x, e1.y, e1.z, o.x, o.y, o.z)) / d;
     if(v < 0.0 || v > 1.0 || u + v > 1.0) return false;
     float t = glm::determinant(glm::mat3(o.x, o.y, o.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z)) / d;
-    if(t < EPSILON) return false;
+    if(t < std::numeric_limits<float>::epsilon()) return false;
 
     glm::vec3 tNorm = glm::cross(e1, e2);
     float raydotnorm = glm::dot(ray_dir, tNorm);
 
-    if (raydotnorm > -EPSILON && raydotnorm < EPSILON) {
+    if (raydotnorm > -std::numeric_limits<float>::epsilon() && raydotnorm < std::numeric_limits<float>::epsilon()) {
         return false;    // This ray is parallel to this triangle.
     }
 
@@ -193,17 +193,26 @@ std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<
         }
     }
     if(parameters.empty()) return intersections;
+
     // sort to return intersection in order of distance from ray origin
     std::sort(parameters.begin(), parameters.end());
 
     // discard unique values in order to avoid double intersection through edges
     auto new_last = std::unique(parameters.begin(), parameters.end(),
-                                [](float f1, float f2) { return std::abs(f1 - f2) < std::numeric_limits<float>::epsilon(); });
+                                [](float f1, float f2) {
+                                    //return std::fabs(f1 - f2) < std::numeric_limits<float>::epsilon();
+                                        return std::fabs(f1 - f2) < 0.0001;
+                                });
     parameters.resize(std::distance(parameters.begin(), new_last));
-    intersections.reserve(parameters.size());
+
+    // exclude single intersection (which means ray is tangent to the mesh)
+    if(parameters.size() == 1) parameters.clear();
+
+    intersections.clear();
     for(float p : parameters) {
         intersections.push_back(ray_origin + ray_dir * p);
     }
+
     return intersections;
 }
 

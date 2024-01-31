@@ -22,44 +22,44 @@ std::vector<gravity::tube> gravity::get_tubes(
 
     // FIND XY PLANE
     glm::vec3 min = util::get_min(vertices);
-    min.x += 0.0001; min.y += 0.0001;
+    //min.x += 0.0001; min.y += 0.0001;
+    min.x -= 0.0001; min.y -= 0.0001;
     glm::vec3 max = util::get_max(vertices);
 
-    max.x -= 0.0001; max.y -= 0.0001;
+    //max.x -= 0.0001; max.y -= 0.0001;
+    max.x += 0.0001; max.y += 0.0001;
     min.z = min.z - 10;
     max.z = min.z;
 
     glm::vec3 center = (min + max) / 2.0f;
 
-    float x_width = max.x - min.x;
-    float y_width = max.y - min.y;
-    float max_extent = x_width;
-    if(y_width > max_extent) max_extent = y_width;
+    double max_extent = std::max(max.x - min.x, max.y - min.y);
 
-    min = {center.x - (max_extent / 2.0f), center.y - (max_extent / 2.0f), center.z};
+    min = {center.x - (max_extent / 2.0), center.y - (max_extent / 2.0f), center.z};
 
     // CUBE EDGE LENGTH
-    float cube_edge = max_extent / (float)resolution;
+    double cube_edge = (double)max_extent / (double)resolution;
 
     *cylinder_R = (float)std::sqrt(std::pow(cube_edge, 2) / M_PI);
 
     glm::vec3 ray_dir = {0.f, 0.f, 1.f};
 
-#pragma omp parallel for default(none), shared(cube_edge, resolution, ray_dir, tubes, min, vertices, faces)
+    std::cout << "SCARTO ERRORE TRA MAX REALE E MAX CALCOLATO: " << (max.x) - (min.x + (float)((double)(resolution - 25) * cube_edge)) << std::endl;
+
+#pragma omp parallel for default(none), shared(cube_edge, resolution, ray_dir, tubes, min, vertices, faces, std::cout)
     for(int i = 0; i < resolution + 1; i++) {
         for(int j = 0; j < resolution + 1; j++) {
             // RAY
-            ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
+            ray r = {{min.x + (float)((double)i * cube_edge), min.y + (float)((double)j * cube_edge), min.z}, ray_dir};
             // FIND INTERSECTIONS
             std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
-            if(intersections.size() == 3) intersections.erase(intersections.end() - 1);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
-                if(abs(intersections[k].x) > 100 || abs(intersections[k].y) > 100 || abs(intersections[k].z) > 100 ||
-                    abs(intersections[k + 1].x) > 100 || abs(intersections[k + 1].y) > 100 || abs(intersections[k + 1].z) > 100) {
-                    continue;
-                }
+                /*
+                if(glm::distance(intersections[k], intersections[k + 1]) > 10) {
+                    std::cout << "impossible tube second check" << std::endl;
+                }*/
                 // TUBE
 #pragma omp critical
                 tubes.push_back({intersections[k], intersections[k + 1]});
