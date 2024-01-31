@@ -204,16 +204,18 @@ int main(int argv, char** args) {
     float rotation[3] = {0.0f, 0.0f, 0.0f};
 
     // DEBUG BALL MODEL MATRIX PARAMETERS
-    float debug_ball_scale = 1.0f;
-    float debug_ball_position[3] = {0.f, 0.f, 0.f};
+    float debug_ball_scale = 0.1f;
+    float debug_ball_position[3] = {1.f, 0.f, 0.f};
 
     // GRAVITY VALUES
 
     // point where gravity is calculated
-    float potential_point[3] = {0.f, 0.f, 0.f};
+    float potential_point[3] = {1.f, 0.f, 0.f};
 
     // output holder for gravity
-    glm::vec3 gravity = {0.f, 0.f, 0.f};
+    glm::vec3 gravity{0.f, 0.f, 0.f};
+
+    glm::vec3 gravity_from_potential_gradient{0.f, 0.f, 0.f};
 
     // output holders for gravity vector calculated by GPUComputing and space vector
     std::vector<glm::vec3> discrete_space{};
@@ -448,6 +450,20 @@ int main(int argv, char** args) {
             if(ImGui::Button("calculate gravity with tubes integral")) {
                 gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, G, cylinder_R);
             }
+            float offset;
+            ImGui::InputFloat("gradient offset", &offset, 0, 0, "%.7f");
+            if(ImGui::Button("calculate gravity from potential gradient")) {
+                gravity_from_potential_gradient = util::get_gradient(
+                    {
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0] - offset, potential_point[1], potential_point[2]}, tubes, G, cylinder_R),
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0] + offset, potential_point[1], potential_point[2]}, tubes, G, cylinder_R),
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1] - offset, potential_point[2]}, tubes, G, cylinder_R),
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1] + offset, potential_point[2]}, tubes, G, cylinder_R),
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1], potential_point[2] - offset}, tubes, G, cylinder_R),
+                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1], potential_point[2] + offset}, tubes, G, cylinder_R),
+                    }, offset*2.0f
+                    );
+            }
 
             // GPU COMPUTING BUTTON -> calculate gravity with gpu computing
             if(ImGui::Button("GPU COMPUTING")) {
@@ -552,6 +568,11 @@ int main(int argv, char** args) {
 
             // GRAVITY OUTPUTS
             ImGui::Text("gravity: %f %f %f", gravity.x, gravity.y, gravity.z);
+            ImGui::Text("gravity as potential gradient: %f %f %f",
+                gravity_from_potential_gradient.x,
+                gravity_from_potential_gradient.y,
+                gravity_from_potential_gradient.z
+                );
             ImGui::Text("gravity force: %f", glm::length(gravity));
 
             // RAY PARAMETERS INPUT
