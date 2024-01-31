@@ -28,8 +28,28 @@ kernel void get_gravity_from_tubes(
 
         float a = distance(p, o);
 
+        float PI = 3.14159265359;
+
         float r = R[0];
-        if(a < R[0]) r = a;
+        if(a < R[0] && p.z > t1.z && p.z < t2.z) {
+            return;
+            // use masses
+            int n_of_masses = (int)floor((distance(t1, t2) / (2.0*R[0])));
+            float little_cylinder_height = distance(t1, t2) / (float)(n_of_masses);
+            float mass_R = pow((little_cylinder_height * pow(R[0], 2) * (3.f / 4.f)), 1.f/3.f);
+            for(int i = 0; i < n_of_masses; i++) {
+                float3 mass_pos = t1 + x * (i * 2 * mass_R + mass_R);
+                float3 dir = mass_pos - p;
+                float r3 = pow(dot(dir, dir), 1.5);
+                if(length(dir) < mass_R) {
+                    r3 = pow(mass_R, 3.f);
+                }
+                contributes[3*index] += (dir.x * G[0] * ((4.f/3.f)*PI*pow(mass_R, 3.f))) / r3;
+                contributes[3*index + 1] += (dir.y * G[0] * ((4.f/3.f)*PI*pow(mass_R, 3.f))) / r3;
+                contributes[3*index + 2] += (dir.z * G[0] * ((4.f/3.f)*PI*pow(mass_R, 3.f))) / r3;
+            }
+            return;
+        }
 
         float b = distance(t1, o);
         float c = distance(t2, o);
@@ -39,8 +59,6 @@ kernel void get_gravity_from_tubes(
             b = c;
             c = tmp;
         }
-
-        float PI = 3.14159265359;
 
         float fy = ((G[0]*PI*pow(r,2)) *
                    ((c / sqrt(pow(a, 2) + pow(c, 2))) - (b / sqrt(pow(a, 2) + pow(b, 2))))
