@@ -118,8 +118,39 @@ namespace gravity {
         return glm::mat3{x, y, z} * glm::vec3{fx, fy, 0};
     }
 
+    inline float get_potential_from_tube(glm::vec3 p, tube t, float G, float cylinder_R) {
+        auto t1_p = p - t.t1;
+
+        int left = 1;
+
+        // new coordinate system x_axis
+        auto x = glm::normalize(t.t2 - t.t1);
+        if(glm::distance2(t.t2, p) < glm::distance2(t.t1, p)) {
+            x = glm::normalize(t.t1 - t.t2);
+            left = -1;
+        }
+
+        // new coordinate system origin
+        auto o = t.t1 + x * glm::dot(x, t1_p);
+
+        auto a = std::max(glm::distance(p, o), cylinder_R);
+        auto b = glm::distance(t.t1, o);
+        auto c = glm::distance(t.t2, o);
+
+        auto integral_c = 0.5f*(float)std::log(2*c*(sqrt(pow(a, 2) + pow(c, 2)) + c)/pow(a, 2) + 1);
+        auto integral_b = 0.5f*(float)std::log(2*b*(sqrt(pow(a, 2) + pow(b, 2)) + b)/pow(a, 2) + 1);
+
+        // se p + in mezzo al tubo, devo sommare integrale da b a c a 2*integrale da 0 a b
+        if(p.z >= t.t1.z && p.z <= t.t2.z) {
+            return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*(integral_c + integral_b);
+        }
+
+        return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
+    }
+
     glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<tube>& tubes, glm::vec3 point);
     glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+    float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
     glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point);
     glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float sphere_R, glm::vec3 point);
