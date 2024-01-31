@@ -252,6 +252,22 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const s
     return force_from_integral;
 }
 
+float gravity::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
+    omp_set_num_threads(omp_get_max_threads());
+    float thread_potential[omp_get_max_threads()];
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        thread_potential[i] = 0.f;
+    }
+    float potential = 0.f;
+
+#pragma omp parallel for default(none) shared(tubes, point, G, thread_potential, cylinder_R)
+    for(auto t : tubes) {
+        thread_potential[omp_get_thread_num()] += gravity::get_potential_from_tube(point, t, G, cylinder_R);
+    }
+    for(int i = 0; i < omp_get_max_threads(); i++) potential += thread_potential[i];
+    return potential;
+}
+
 glm::vec3 gravity::get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point) {
     glm::vec3 dir = m.p - point;
     auto r3 = (float)pow(glm::length(dir), 3);
