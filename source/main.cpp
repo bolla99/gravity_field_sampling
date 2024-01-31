@@ -220,7 +220,7 @@ int main(int argv, char** args) {
     std::vector<glm::vec3> gpu_output_gravity{};
 
     // parameters used where function parameter "resolution" is required.
-    int gravity_resolution = 32;
+    int gravity_resolution = 128;
 
     // mass radius
     float sphere_R;
@@ -232,7 +232,6 @@ int main(int argv, char** args) {
     // masses container
     std::vector<gravity::mass> masses{};
     std::vector<gravity::tube> tubes{};
-    auto transformed_tubes = tubes;
 
     // mesh volume
     float volume = 0.f;
@@ -425,7 +424,7 @@ int main(int argv, char** args) {
             ImGui::Begin("GRAVITY PROCESSING");
             ImGui::Text("Volume %f", volume);
 
-            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 512);
+            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 2001);
             ImGui::SliderFloat("G", &G, 0, 100);
             ImGui::SliderFloat("point x", &potential_point[0], -5, 5);
             ImGui::SliderFloat("point y", &potential_point[1], -5, 5);
@@ -488,16 +487,7 @@ int main(int argv, char** args) {
                 //t1.log();
                 //t2.log();
                 if(!tubes.empty()) {
-                    // clear and update transformed_tubes size
-                    // transformed tubes is used for tubes debug representation
-                    transformed_tubes.clear();
-                    transformed_tubes.resize(tubes.size());
                     // update tubes
-                    /*
-                    for(int i = 0; i < tubes.size(); i++) {
-                        transformed_tubes[i].t1 = model_matrix * glm::vec<4, float>{tubes[i].t1.x, tubes[i].t1.y, tubes[i].t1.z, 1};
-                        transformed_tubes[i].t2 = model_matrix * glm::vec<4, float>{tubes[i].t2.x, tubes[i].t2.y, tubes[i].t2.z, 1};
-                    }*/
 
                     auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{debug_ball_position[0], debug_ball_position[1], debug_ball_position[2], 1};
 
@@ -742,8 +732,8 @@ int main(int argv, char** args) {
 
         // TUBES DRAW
         if(!tubes.empty() && showTubes) {
-            glBufferData(GL_ARRAY_BUFFER, transformed_tubes.size() * 6 * sizeof(float), glm::value_ptr(transformed_tubes.front().t1), GL_DYNAMIC_DRAW);
-            glDrawArrays(GL_LINES, 0, transformed_tubes.size() * 2);
+            glBufferData(GL_ARRAY_BUFFER, tubes.size() * 6 * sizeof(float), glm::value_ptr(tubes.front().t1), GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_LINES, 0, tubes.size() * 2);
         }
 
         // SWAP WINDOWS
