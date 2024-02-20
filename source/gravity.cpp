@@ -3,11 +3,21 @@
 //
 
 #include "gravity.hpp"
+#include "GPUComputing.hpp"
 #include "util.hpp"
 #include <iostream>
 #include <algorithm>
+#include <unordered_map>
 #include <omp.h>
 #include <SDL.h>
+
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+
+#include "glm/gtx/hash.hpp"
+#include "glm/glm.hpp"
+#include <glm/gtc/type_ptr.hpp>
 
 std::vector<gravity::tube> gravity::get_tubes(
         const std::vector<glm::vec3>& vertices,
@@ -252,6 +262,30 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const s
     return force_from_integral;
 }
 
+glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
+    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
+
+    glm::vec3 output_gravity{0.f, 0.f, 0.f};
+
+    omp_set_num_threads(omp_get_max_threads());
+    glm::vec3 thread_gravity[omp_get_max_threads()];
+
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        thread_gravity[i] = {0, 0, 0};
+    }
+
+#pragma omp parallel for default(none) shared(output, thread_gravity, tubes)
+    for(int i = 0; i < tubes.size(); i++) {
+        thread_gravity[omp_get_thread_num()] += glm::vec3(output[3*i], output[3*i + 1], output[3*i + 2]);
+    }
+
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        output_gravity += thread_gravity[i];
+    }
+    delete output;
+    return output_gravity;
+}
+
 float gravity::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
     omp_set_num_threads(omp_get_max_threads());
     float thread_potential[omp_get_max_threads()];
@@ -329,24 +363,15 @@ glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const
     glm::vec3 output_gravity{};
     // interpolation
     for(int i = 0; i < 8; i++) {
-        output_gravity += gravity[indices_1d[i]] * trilinear_coordinates[i];
+        output_gravity +=  trilinear_coordinates[i] * gravity[indices_1d[i]];
     }
     return output_gravity;
 }
 
-std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution) {
+std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, float edge, int resolution) {
     omp_set_num_threads(omp_get_max_threads());
-    glm::vec3 center = (max + min) * 0.5f;
-    float x_width = max.x - min.x;
-    float y_width = max.y - min.y;
-    float z_width = max.z - min.z;
-    float max_extent = x_width;
-    if (y_width > max_extent) max_extent = y_width;
-    if (z_width > max_extent) max_extent = z_width;
 
-    min = center - (max_extent / 2.0f);
-
-    float unit = max_extent / (float)resolution;
+    float unit = edge / (float)resolution;
 
     std::vector<glm::vec3> v;
     for (int i = 0; i < resolution + 1; i++) {
@@ -429,6 +454,62 @@ void gravity::build_octree_with_integral(
 
         for(int i = 0; i < 8; i++) {
             build_octree_with_integral(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, tubes, G, R);
+        }
+    }
+}
+
+void gravity::build_octree_with_integral_optimized(
+        float precision,
+        std::vector<int>& octree,
+        int id,
+        int max_res,
+        glm::vec3 min,
+        float edge,
+        glm::vec<3, int> int_min,
+        int int_edge,
+        std::vector<glm::vec3>& gravity_values,
+        std::vector<glm::vec3>& tmp_gravity_values,
+        std::unordered_map<glm::vec<3, int>, int>& cached_values,
+        const std::vector<tube>& tubes,
+        float G, float R
+        ) {
+
+    // first eight values -> first eight values
+    auto location = util::get_box(min, edge);
+    auto int_location = util::get_int_box(int_min, int_edge);
+    for(int i = 0; i < 8; i++) {
+        // check if values are already cached; values index in negative integer
+        if(auto k = cached_values.find(int_location[i]); k != cached_values.end()) {
+            // cached values are already in gravity_values
+            if(k->second >= 0) octree.push_back(-(k->second));
+            // cached values are in tmp gravity_values; they need to be copied
+            if(k->second < 0) {
+                gravity_values.push_back(tmp_gravity_values[-(k->second) - 1]);
+                k->second = (int)gravity_values.size() - 1;
+                octree.push_back(-(int)gravity_values.size() + 1);
+            }
+        } else {
+            int new_value_index = (int)gravity_values.size();
+            gravity_values.push_back(get_gravity_from_tubes_with_integral_with_gpu(location[i], tubes, G, R));
+            cached_values.emplace(int_location[i], new_value_index);
+            octree.push_back(-new_value_index);
+        }
+    }
+
+    if(max_res > 0 && should_divide_with_integral_optimized(precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, tubes, G, R)) {
+        // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
+        // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
+
+        auto mins = util::get_box(min, edge/2.f);
+        auto int_mins = util::get_int_box(int_min, int_edge/2);
+
+        for(int i = 0; i < 8; i++) {
+            octree[id + i] = (int)octree.size();
+            build_octree_with_integral_optimized(
+                    precision, octree, octree[id + i], max_res - 1, mins[i],
+                    edge/2.f, int_mins[i],
+                    int_edge / 2, gravity_values, tmp_gravity_values, cached_values, tubes, G, R
+                    );
         }
     }
 }

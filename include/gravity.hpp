@@ -7,6 +7,10 @@
 
 #include <vector>
 #include <glm/glm.hpp>
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+#include <glm/gtx/hash.hpp>
 #include <util.hpp>
 #include <iostream>
 
@@ -150,6 +154,8 @@ namespace gravity {
 
     glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<tube>& tubes, glm::vec3 point);
     glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+    glm::vec3 get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+
     float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
     glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point);
@@ -167,7 +173,8 @@ namespace gravity {
 
 
     // vettore monodimensionale for(x) {for(y) {for(z)}}}
-    std::vector<glm::vec3> get_discrete_space(glm::vec3 min, glm::vec3 max, int resolution);
+    // divite lo spazio su un asse in resolution segmenti (resolution + 1 campioni)
+    std::vector<glm::vec3> get_discrete_space(glm::vec3 min, float edge, int resolution);
 
     float volume(
             const std::vector<glm::vec3>& vertices,
@@ -179,6 +186,13 @@ namespace gravity {
         // first_child_id = -1 -> leaf node
         int first_child_id;
         std::array<glm::vec3, 8>* gravity_octant;
+    };
+
+    // if child > 0 then child represent the index of the first of the eight children, so the node
+    // is an internal node; if child <= 0, then abs(child) represents the index of an array from which you
+    // can retreive the gravity value for that node -> the node is a leaf
+    struct octree {
+        int child;
     };
 
     struct gravity_field {
@@ -291,7 +305,7 @@ namespace gravity {
                     );
     }
 
-        inline bool should_divide_with_integral(float precision, node n, glm::vec3 local_min, float edge, const std::vector<tube>& tubes, float G, float R) {
+    inline bool should_divide_with_integral(float precision, node n, glm::vec3 local_min, float edge, const std::vector<tube>& tubes, float G, float R) {
         std::array<glm::vec3, 8> cube = util::get_box(local_min, edge);
         glm::vec3 min = glm::vec3{local_min.x + edge/4.0, local_min.y + edge/4.0, local_min.z + edge/4.0};
         return                   !util::vectors_are_p_equal(
@@ -329,6 +343,59 @@ namespace gravity {
                     );
     }
 
+    inline bool should_divide_with_integral_optimized(
+        float precision,
+        int id,
+        const std::vector<int>& octree,
+        int max_depth,
+        glm::vec3 box_min_position,
+        float edge,
+        glm::ivec3 int_box_min_position,
+        int int_edge,
+        const std::vector<glm::vec3>& gravity_values,
+        std::vector<glm::vec3>& tmp_gravity_values,
+        std::unordered_map<glm::vec<3, int>, int>& cached_values,
+        const std::vector<tube>& tubes,
+        float G,
+        float R) {
+        if(max_depth == 1) {
+            return true;
+        }
+
+        // box that is being tested (if it should be divided in eight boxes)
+        std::array<glm::vec3, 8> box = util::get_box(box_min_position, edge);
+
+        std::array<glm::vec3, 8> values{};
+        for(int i = 0; i < 8; i++) {
+            values[i] = gravity_values[-octree[id + i]];
+        }
+
+        // min of the eight test location where interpolated and real gravity are compared
+        glm::vec3 min = glm::vec3{box_min_position.x + edge/4.0, box_min_position.y + edge/4.0, box_min_position.z + edge/4.0};
+        glm::ivec3 int_min = glm::ivec3{int_box_min_position.x + int_edge/4, int_box_min_position.y + int_edge/4, int_box_min_position.z + int_edge/4};
+
+        auto locations = util::get_box(min, edge/2.f);
+        auto ilocations = util::get_int_box(int_min, int_edge/2);
+        glm::vec3 test_value;
+        for(int i = 0; i < 8; i++) {
+            if(auto j = cached_values.find(ilocations[i]); j != cached_values.end()) {
+                if(j->second >= 0) {
+                   test_value = gravity_values[j->second];
+                } else {
+                    test_value = tmp_gravity_values[-(j->second) - 1];
+                }
+            } else {
+                test_value = get_gravity_from_tubes_with_integral_with_gpu(locations[i], tubes, G, R);
+                if(max_depth > 1) {
+                    cached_values.emplace(ilocations[i], -tmp_gravity_values.size() - 1);
+                    tmp_gravity_values.push_back(test_value);
+                }
+            }
+            if(!util::vectors_are_p_equal(util::interpolate(locations[i], box, values), test_value, precision)) return true;
+        }
+        return false;
+    }
+
     void build_octree(
         float precision,
         std::vector<node>& octree,
@@ -347,6 +414,22 @@ namespace gravity {
         int max_res,
         glm::vec3 min,
         float edge,
+        const std::vector<tube>& tubes,
+        float G, float R
+        );
+
+    void build_octree_with_integral_optimized(
+        float precision,
+        std::vector<int>& octree,
+        int id,
+        int max_res,
+        glm::vec3 min,
+        float edge,
+        glm::vec<3, int> int_min,
+        int int_edge,
+        std::vector<glm::vec3>& gravity_values,
+        std::vector<glm::vec3>& tmp_gravity_values,
+        std::unordered_map<glm::vec<3, int>, int>& cached_values,
         const std::vector<tube>& tubes,
         float G, float R
         );
