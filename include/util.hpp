@@ -72,6 +72,19 @@ namespace util {
         };
     }
 
+    inline std::array<glm::vec<3, int>, 8> get_int_box(const glm::vec<3, int>& min, int edge) {
+        return {
+            glm::vec3{min.x, min.y, min.z},
+            glm::vec3{min.x + edge, min.y, min.z},
+            glm::vec3{min.x, min.y + edge, min.z},
+            glm::vec3{min.x + edge, min.y + edge, min.z},
+            glm::vec3{min.x, min.y, min.z + edge},
+            glm::vec3{min.x + edge, min.y, min.z + edge},
+            glm::vec3{min.x, min.y + edge, min.z + edge},
+            glm::vec3{min.x + edge, min.y + edge, min.z + edge}
+        };
+    }
+
     // box: first 3 floats are the center of the box, fourth is the edge
     inline std::array<glm::vec3, 8> get_box(const std::array<float, 4>& box) {
         return get_box(
@@ -104,8 +117,8 @@ namespace util {
 
     // absolute comparison
     // precision -> max length of (v1 - v2 vector) allowed
-    inline bool vectors_are_p_equal(glm::vec3 v1, glm::vec3 v2, float precision) {
-        return glm::length(v1 - v2) < precision;
+    inline bool vectors_are_p_equal(const glm::vec3& v1, const glm::vec3& v2, float precision) {
+        return glm::length2(v1 - v2) < precision;
     }
 
     bool is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
