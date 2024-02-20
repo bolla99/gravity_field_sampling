@@ -247,9 +247,9 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     auto y_i = y_extent / unit;
     auto z_i = z_extent / unit;
 
-    int floor_x = floor(x_i);
-    int floor_y = floor(y_i);
-    int floor_z = floor(z_i);
+    int floor_x = floor(x_i); if(floor_x == resolution) floor_x--;
+    int floor_y = floor(y_i); if(floor_y == resolution) floor_y--;
+    int floor_z = floor(z_i); if(floor_z == resolution) floor_z--;
     return std::array<std::array<int, 3>, 8>{
             std::array<int, 3>{floor_x, floor_y, floor_z},
             std::array<int, 3>{floor_x + 1, floor_y, floor_z},
