@@ -20,9 +20,7 @@ public:
     int time() { return SDL_GetTicks64() - ms; }
 
     void log() {
-        std::cout << std::endl << "timer " << id;
-        if(ms > 0) std::cout << " | time elapsed: " << time();
-        std::cout << std::endl;
+        std::cout << id << " -> " << time() << "ms";
     }
 };
 
