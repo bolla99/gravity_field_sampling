@@ -355,9 +355,11 @@ namespace gravity {
         const std::vector<glm::vec3>& gravity_values,
         std::vector<glm::vec3>& tmp_gravity_values,
         std::unordered_map<glm::vec<3, int>, int>& cached_values,
+        std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
         float G,
         float R) {
+
         if(max_depth == 1) {
             return true;
         }
@@ -375,19 +377,53 @@ namespace gravity {
         glm::ivec3 int_min = glm::ivec3{int_box_min_position.x + int_edge/4, int_box_min_position.y + int_edge/4, int_box_min_position.z + int_edge/4};
 
         auto locations = util::get_box(min, edge/2.f);
+        auto locations_vec = std::vector<glm::vec3>{};
+        for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
+
         auto ilocations = util::get_int_box(int_min, int_edge/2);
+        auto ilocations_vec = std::vector<glm::ivec3>{};
+        for(int i = 0; i < 8; i++) ilocations_vec.emplace_back(ilocations[i]);
+
         glm::vec3 test_value;
-        for(int i = 0; i < 8; i++) {
+
+        // add center and half edges to locations / i locations
+        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge/2.f, min.z + edge/2.f);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge/2, int_min.z + int_edge/2);
+
+        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z);
+        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z);
+        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z);
+        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z);
+        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z);
+        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z);
+
+        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z + edge/2.f);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z + int_edge/2);
+        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z + edge/2.f);
+        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z + int_edge/2);
+        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z + edge/2.f);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z + int_edge/2);
+        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z + edge/2.f);
+        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z + int_edge/2);
+
+        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z + edge);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z + int_edge);
+        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z + edge);
+        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z + int_edge);
+        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z + edge);
+        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z + int_edge);
+        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z + edge);
+        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z + int_edge);
+
+        for(int i = 0; i < locations_vec.size(); i++) {
             if(auto j = cached_values.find(ilocations[i]); j != cached_values.end()) {
-                if(j->second >= 0) {
-                   test_value = gravity_values[j->second];
-                } else {
-                    test_value = tmp_gravity_values[-(j->second) - 1];
-                }
+                test_value = tmp_gravity_values[j->second];
             } else {
                 test_value = get_gravity_from_tubes_with_integral_with_gpu(locations[i], tubes, G, R);
                 if(max_depth > 1) {
-                    cached_values.emplace(ilocations[i], -tmp_gravity_values.size() - 1);
+                    cached_values.emplace(ilocations[i], tmp_gravity_values.size());
                     tmp_gravity_values.push_back(test_value);
                 }
             }
@@ -430,6 +466,7 @@ namespace gravity {
         std::vector<glm::vec3>& gravity_values,
         std::vector<glm::vec3>& tmp_gravity_values,
         std::unordered_map<glm::vec<3, int>, int>& cached_values,
+        std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
         float G, float R
         );

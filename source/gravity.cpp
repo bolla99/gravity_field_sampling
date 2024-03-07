@@ -470,6 +470,7 @@ void gravity::build_octree_with_integral_optimized(
         std::vector<glm::vec3>& gravity_values,
         std::vector<glm::vec3>& tmp_gravity_values,
         std::unordered_map<glm::vec<3, int>, int>& cached_values,
+        std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
         float G, float R
         ) {
@@ -479,24 +480,24 @@ void gravity::build_octree_with_integral_optimized(
     auto int_location = util::get_int_box(int_min, int_edge);
     for(int i = 0; i < 8; i++) {
         // check if values are already cached; values index in negative integer
-        if(auto k = cached_values.find(int_location[i]); k != cached_values.end()) {
-            // cached values are already in gravity_values
-            if(k->second >= 0) octree.push_back(-(k->second));
-            // cached values are in tmp gravity_values; they need to be copied
-            if(k->second < 0) {
-                gravity_values.push_back(tmp_gravity_values[-(k->second) - 1]);
-                k->second = (int)gravity_values.size() - 1;
-                octree.push_back(-(int)gravity_values.size() + 1);
-            }
+        if(auto k1 = gravity_values_map.find(int_location[i]); k1 != gravity_values_map.end()) {
+            octree.push_back(-(k1->second));
+        } else if(auto k2 = cached_values.find(int_location[i]); k2 != cached_values.end()) {
+            int j = gravity_values.size();
+            octree.push_back(-j);
+            gravity_values.push_back(tmp_gravity_values[k2->second]);
+            gravity_values_map.emplace(int_location[i], j);
         } else {
             int new_value_index = (int)gravity_values.size();
             gravity_values.push_back(get_gravity_from_tubes_with_integral_with_gpu(location[i], tubes, G, R));
-            cached_values.emplace(int_location[i], new_value_index);
+            gravity_values_map.emplace(int_location[i], tmp_gravity_values.size());
+            //tmp_gravity_values.push_back(gravity_values[new_value_index]);
+            //cached_values.emplace(int_location[i], new_value_index);
             octree.push_back(-new_value_index);
         }
     }
 
-    if(max_res > 0 && should_divide_with_integral_optimized(precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, tubes, G, R)) {
+    if(max_res > 0 && should_divide_with_integral_optimized(precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
         // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
 
@@ -508,7 +509,7 @@ void gravity::build_octree_with_integral_optimized(
             build_octree_with_integral_optimized(
                     precision, octree, octree[id + i], max_res - 1, mins[i],
                     edge/2.f, int_mins[i],
-                    int_edge / 2, gravity_values, tmp_gravity_values, cached_values, tubes, G, R
+                    int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R
                     );
         }
     }
