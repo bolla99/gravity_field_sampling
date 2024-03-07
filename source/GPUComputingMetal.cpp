@@ -98,7 +98,7 @@ float* GPUComputing::get_gravity_from_tubes_with_integral(const float* tubes, in
     auto pool = NS::TransferPtr(NS::AutoreleasePool::alloc()->init());
     static NS::String* source = nullptr;
     if(source == nullptr) {
-        std::cout << "READING METAL SHADER";
+        //std::cout << "READING METAL SHADER";
         // read shader
         std::ifstream file;
         file.open("../shaders/get_gravity_from_tubes.metal", std::ios::in);
