@@ -240,13 +240,50 @@ int main(int argv, char** args) {
     std::vector<gravity::tube> tubes{};
 
     // octree data
+    // semantics: if octree[i] <= 0 then -octree[i] is the index of gravity value; the following
+    // seven values have the same semantics; if octree[i] > 0 then octree[i] is the index (on
+    // the same vector) of the first vertex of inner cube; the following values have the same semantics
     auto octree = std::vector<int>();
-    // gravity values; they are indexed with negatives valus; -octree.value -1
+
+    // gravity values; this vector is accessed from indexes retrieved from octree vecto
     auto gravity_values = std::vector<glm::vec3>();
 
-    // area of octree computation
+    // if int value < 0 -> value is in tmp_gravity_value with index -i - 1
+    // if int value >= 0 -> value is in gravity_value
+    // when cached_values is filled with gpu_output_gravity values (precomputed grid)
+    // integer coordinates depends on octree_depth and cached_gpu_depth (gpu_depth
+    // when gpu grid was computed; that means that if octree_depth is changed,
+    // cached_values must be refilled with same values but different coordinates;
+    // workflow is: set gpu depth -> compute grid; gpu depth is cached; than fill cached_values;
+    // than build octree; if gpu_depth is changed repeat whole process; is octree_depth is
+    // changed repeat from fill cached values; if precision is changed repeat from build octree.
+    // elements are integer coordinates -> index
+    auto cached_values = std::unordered_map<glm::ivec3, int>();
+
+    // this map contains values already used and added to gravity_values during building
+    // this is cleared before octree building and it is filled during octree building, and
+    // then cleared
+    auto gravity_values_map = std::unordered_map<glm::ivec3, int>();
+
+    // these are temporary gravity values: they are cached (already computed) gravity values,
+    // they will be added to gravity values if they will be used, in fact gravity_values
+    // size is always less than tmp_gravity_values size
+    auto tmp_gravity_values = std::vector<glm::vec3>();
+
+    // area of octree computation; changes to these values imply the repetition of octree
+    // workflow (from grid computation)
     float min[3] {-3.f, -3.f, -3.f};
     float edge = 6.f;
+
+    // octree parameters
+
+    // depth of grid computed by gpu
+    int gpu_depth;
+    int cached_gpu_depth;
+    // max depth of octree
+    int octree_depth;
+    int cached_octree_depth;
+    float precision;
 
     // mesh volume
     float volume = 0.f;
@@ -345,20 +382,6 @@ int main(int argv, char** args) {
 
 
           // ******************************************************* //
-         // ************** UPDATE.(GRAVITY PROCESSING) ************ //
-        // ******************************************************* //
-
-        /*
-         * Gravity processing is done real time with tetrahedrons method;
-         * volume processing is done real time
-         * other gravity processing methods are executed by gui interactions
-         */
-
-        // UPDATE MESH VOLUME
-        // volume = gravity::volume(msh.get_vertices(), msh.get_faces(), {2.f, 2.f, 2.f});
-
-
-          // ******************************************************* //
          // ************************** INPUT ********************** //
         // ******************************************************* //
         SDL_Event event;
@@ -429,9 +452,6 @@ int main(int argv, char** args) {
         if(ImGui::Button("OPEN MESH")) mesh_browser.Open();
         if(!msh.get_vertices().empty()) {
             ImGui::Text("Mesh loaded");
-            /*if(ImGui::Button("Save Mesh")) {
-                msh.write_on_disk_as_obj("saved_mesh.obj");
-            }*/
         }
 
         // GRAVITY CALCULATION OPERATIONS
@@ -439,12 +459,12 @@ int main(int argv, char** args) {
             ImGui::Begin("GRAVITY PROCESSING");
             ImGui::Text("Volume %f", volume);
 
-            ImGui::SliderInt("ray gravity resolution", &gravity_resolution, 0, 2001);
+            ImGui::SliderInt("tubes resolution", &gravity_resolution, 0, 2001);
             ImGui::SliderFloat("G", &G, 0, 100);
             ImGui::SliderFloat("point x", &potential_point[0], -5, 5);
             ImGui::SliderFloat("point y", &potential_point[1], -5, 5);
             ImGui::SliderFloat("point z", &potential_point[2], -5, 5);
-            ImGui::InputFloat3("potential point", potential_point);
+            ImGui::InputFloat3("point", potential_point);
 
             if(ImGui::Button("set up masses")) {
                 masses.erase(masses.begin(), masses.end());
@@ -454,223 +474,186 @@ int main(int argv, char** args) {
                 tubes.erase(tubes.begin(), tubes.end());
                 tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &cylinder_R);
             }
-            if(ImGui::Button("calculate gravity with masses")) {
-                gravity = gravity::get_gravity_from_masses(masses, 10, sphere_R, glm::make_vec3(potential_point));
-            }
-            if(ImGui::Button("calculate gravity with tubes")) {
-                gravity = gravity::get_gravity_from_tubes(msh.get_vertices(), gravity_resolution, tubes, glm::make_vec3(potential_point));
-            }
-            if(ImGui::Button("calculate gravity with tubes integral")) {
-                gravity = gravity::get_gravity_from_tubes_with_integral(glm::make_vec3(potential_point), tubes, G, cylinder_R);
-            }
-            float offset;
-            ImGui::InputFloat("gradient offset", &offset, 0, 0, "%.7f");
-            if(ImGui::Button("calculate gravity from potential gradient")) {
-                gravity_from_potential_gradient = util::get_gradient(
-                    {
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0] - offset, potential_point[1], potential_point[2]}, tubes, G, cylinder_R),
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0] + offset, potential_point[1], potential_point[2]}, tubes, G, cylinder_R),
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1] - offset, potential_point[2]}, tubes, G, cylinder_R),
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1] + offset, potential_point[2]}, tubes, G, cylinder_R),
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1], potential_point[2] - offset}, tubes, G, cylinder_R),
-                        gravity::get_potential_from_tubes_with_integral({potential_point[0], potential_point[1], potential_point[2] + offset}, tubes, G, cylinder_R),
-                    }, offset*2.0f
-                    );
-            }
 
-            int pre_gpu_depth;
-            int octree_depth;
-
-            //if(!gpu_output_gravity.empty()) {
             if(ImGui::Button("compute gravity from gpu vector")) {
                 gravity_from_octree = gravity::get_gravity_from_1D_precomputed_vector(
                     glm::make_vec3(debug_ball_position),
                     gpu_output_gravity,
                     discrete_space,
-                    (int)std::pow(2, pre_gpu_depth)
+                    (int)std::pow(2, cached_gpu_depth)
                     );
             }
 
+            // REAL TIME GRAVITY UPDATE WITH GPU
+            if(!tubes.empty()) {
+                // update tubes
+                auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{debug_ball_position[0], debug_ball_position[1], debug_ball_position[2], 1};
+                auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), cylinder_R, G);
 
-            // REAL TIME
-            //if(ImGui::Button("compute gravity with tubes integral and GPU")) {
-                //Timer t1{};
-                //Timer t2{};
-                //t1.log();
-                //t2.log();
-                if(!tubes.empty()) {
-                    // update tubes
 
-                    auto transformed_point = glm::inverse(model_matrix) * glm::vec<4, float>{debug_ball_position[0], debug_ball_position[1], debug_ball_position[2], 1};
+                glm::vec3 output_gravity{0.f, 0.f, 0.f};
+                omp_set_num_threads(omp_get_max_threads());
+                glm::vec3 thread_gravity[omp_get_max_threads()];
 
-                    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(transformed_point), cylinder_R, G);
-                    //t1.log();
-
-                    glm::vec3 output_gravity{0.f, 0.f, 0.f};
-                    omp_set_num_threads(omp_get_max_threads());
-                    glm::vec3 thread_gravity[omp_get_max_threads()];
-
-                    for(int i = 0; i < omp_get_max_threads(); i++) {
-                        thread_gravity[i] = {0, 0, 0};
-                    }
+                for(int i = 0; i < omp_get_max_threads(); i++) {
+                    thread_gravity[i] = {0, 0, 0};
+                }
 
 
 #pragma omp parallel for default(none) shared(output, thread_gravity, tubes)
-                    for(int i = 0; i < tubes.size(); i++) {
-                        thread_gravity[omp_get_thread_num()] += glm::vec3(output[3*i], output[3*i + 1], output[3*i + 2]);
-                    }
-
-                    for(int i = 0; i < omp_get_max_threads(); i++) {
-                        output_gravity += thread_gravity[i];
-                    }
-                    gravity = output_gravity;
-                    gravity = model_rotation_z * model_rotation_y * model_rotation_x * glm::vec<4, float>{gravity, 1};
-
-                    if(is_gravity_on) {
-                        debug_ball_velocity[0] += gravity.x * io.DeltaTime;
-                        debug_ball_velocity[1] += gravity.y * io.DeltaTime;
-                        debug_ball_velocity[2] += gravity.z * io.DeltaTime;
-                    }
-
-                    delete output;
-
-                    //t2.log();
-                    //}
+                for(int i = 0; i < tubes.size(); i++) {
+                    thread_gravity[omp_get_thread_num()] += glm::vec3(output[3*i], output[3*i + 1], output[3*i + 2]);
                 }
 
-            ImGui::SliderInt("octree max depth", &octree_depth, 0, 12);
-            ImGui::SliderInt("pre gpu depth", &pre_gpu_depth, 0, 12);
-            float precision;
-            ImGui::SliderFloat("octree precision", &precision, 0.f, 10.f);
-            ImGui::InputFloat3("min vertex of gravity sample cube", min);
-            ImGui::InputFloat("edge of gravity sample cube", &edge);
-
-            if(ImGui::Button("test new octree")) {
-                gravity::node n = gravity::build_node_with_integral(
-                    glm::make_vec3(min),
-                    edge,
-                    tubes, 10, sphere_R
-                    );
-                auto octree = std::vector<gravity::node>();
-                octree.push_back(n);
-                gravity::build_octree_with_integral(precision, octree, 0, octree_depth,
-                     glm::make_vec3(min),
-                    edge, tubes, 10, sphere_R);
-
-                std::cout << "octree size: " << octree.size() << std::endl;
-            }
-
-            if(ImGui::Button("compute gravity grid with gpu given octree depth, min and edge")) {
-                Timer t{};
-                auto space = gravity::get_discrete_space(glm::make_vec3(min), edge, std::pow(2, pre_gpu_depth));
-                auto output = GPUComputing::get_gravities_from_tubes_with_integral(
-                        glm::value_ptr(tubes.front().t1),
-                        (int)tubes.size(),
-                        glm::value_ptr(space.front()),
-                        (int)space.size(),
-                        cylinder_R, G
-                        );
-
-                gpu_output_gravity.clear();
-                gpu_output_gravity.resize(space.size());
-                int k = 0;
-                for(int i = 0; i < space.size(); i++) {
-                    gpu_output_gravity[i] = glm::vec3{output[k], output[k+1], output[k+2]};
-                    k += 3;
+                for(int i = 0; i < omp_get_max_threads(); i++) {
+                    output_gravity += thread_gravity[i];
                 }
-                discrete_space.clear();
-                discrete_space = space;
+                gravity = output_gravity;
+                gravity = model_rotation_z * model_rotation_y * model_rotation_x * glm::vec<4, float>{gravity, 1};
+
+                if(is_gravity_on) {
+                    debug_ball_velocity[0] += gravity.x * io.DeltaTime;
+                    debug_ball_velocity[1] += gravity.y * io.DeltaTime;
+                    debug_ball_velocity[2] += gravity.z * io.DeltaTime;
+                }
 
                 delete output;
-                t.log();
             }
 
-            if(ImGui::Button("test new octree optimized")) {
-                Timer t{};
+            ImGui::SliderInt("octree depth", &octree_depth, 0, 12);
+            ImGui::SliderInt("gpu depth", &gpu_depth, 0, 12);
+            ImGui::SliderFloat("precision", &precision, 0.f, 10.f);
+            ImGui::InputFloat3("min", min);
+            ImGui::InputFloat("edge", &edge);
 
-                // here resolution stands for segments number for axis
-                auto space = gravity::get_discrete_space(glm::make_vec3(min), edge, std::pow(2, pre_gpu_depth));
+            if(ImGui::Button("compute gpu grid")) {
+                Timer t{};
+                // cached_gpu_depth: gpu_depth for last gpu grid computed
+                cached_gpu_depth = gpu_depth;
+                gpu_output_gravity.clear();
+                discrete_space.clear();
+                // compute discrete space from min, edge and gpu_deph
+                discrete_space = gravity::get_discrete_space(glm::make_vec3(min), edge, std::pow(2, gpu_depth));
+                // compute gravity grid
                 auto output = GPUComputing::get_gravities_from_tubes_with_integral(
                         glm::value_ptr(tubes.front().t1),
                         (int)tubes.size(),
-                        glm::value_ptr(space.front()),
-                        (int)space.size(),
+                        glm::value_ptr(discrete_space.front()),
+                        (int)discrete_space.size(),
                         cylinder_R, G
-                );
-                std::cout << "init gpu";
-                t.log();
+                        );
+                // fill gpu_output_gravity
+                int k = 0;
+                for(int i = 0; i < discrete_space.size(); i++) {
+                    gpu_output_gravity.emplace_back(output[k], output[k+1], output[k+2]);
+                    k += 3;
+                }
 
+                delete output;
+                std::cout << "gpu grid duration: "; t.log(); std::cout << std::endl;
+            }
 
-                octree.clear();
-                gravity_values.clear();
+            // can call it gpu_output_gravity is not empty; it depends on octree_depth
+            // that means that if octree_depth changes and gpu_depth doesn't only load grid values
+            // must be called again to update integer coordinates -> gravity value mapping done by
+            // cache data structures
+            if(ImGui::Button("load grid values") && !gpu_output_gravity.empty()) {
+                Timer t{};
 
+                // clear maps
+                // cached values and tmp_gravity_values contains gpu computed data
+                cached_values.clear();
+                tmp_gravity_values.clear();
 
-                // if int value < 0 -> value is in tmp_gravity_value with index -i - 1
-                // if int value >= 0 -> value is in gravity_value
-                auto cached_values = std::unordered_map<glm::ivec3, int>();
-
-                // these are temporary gravity values: they are cached (already computed) gravity values,
-                // they will be added to gravity values if they will be used, in fact gravity_values
-                // size is always less than tmp_gravity_values size
-                auto tmp_gravity_values = std::vector<glm::vec3>();
-                tmp_gravity_values.reserve(space.size());
-                std::cout << "space size" << space.size() << std::endl;
+                // cached_octree_depth
+                cached_octree_depth = octree_depth;
 
                 // integer distance between gpu computed values in the
                 // grid with increased resolution, which consists in the difference between the
-                // target depth (octree_depth) and the pre computed depth (pre_gpu_depth) plus
-                // 2, which is for address further computation during should divide procedure.
+                // target depth (octree_depth) and the gpu_depth plus 2, which is for address
+                // further computation during should divide procedure.
                 // (when computing should divide, points examined belongs to current depth level + 2,
                 // and in order to cache them they need to be addressed with integer indexes.
-                auto m = (int)std::pow(2, octree_depth + 2 - pre_gpu_depth);
+                auto m = (int) std::pow(2, cached_octree_depth + 2 - cached_gpu_depth);
 
                 // here res means number of values per axis
                 // for example, if pre_gpu_depth is 1, that means 1 division, so 3 values = 2^1 + 1
                 // values per axis = segments per axis + 1
-                auto res = (int)std::pow(2, pre_gpu_depth) + 1;
-                for(int i = 0; i < space.size(); i++) {
+                auto res = (int) std::pow(2, cached_gpu_depth) + 1;
+
+                // cached_values maps integer coordinates -> index for tmp_gravity_values
+                for (int i = 0; i < discrete_space.size(); i++) {
                     cached_values.emplace(
-                            glm::ivec3{m*(i / (res*res)), m*((i % (res*res))/ res), m*(i % res)},
-                            -i - 1
-                            );
-                    // WARNING -> cached values are pushed from index 0; cached index values are -index - 1
-                    // to retrieve actual index, true_index = -cached_value - 1
-                    tmp_gravity_values.push_back({output[3*i], output[3*i + 1], output[3*i + 2]});
+                            glm::ivec3{m * (i / (res * res)), m * ((i % (res * res)) / res), m * (i % res)},
+                            i
+                    );
+                    tmp_gravity_values.emplace_back(gpu_output_gravity[i]);
                 }
 
-                std::cout << "preload values in tmp gravity values";
+                std::cout << "load grid values duration: ";
                 t.log();
+                std::cout << " ms" << std::endl;
+            }
+
+            if(ImGui::Button("build octree")) {
+                Timer t{};
+                octree.clear();
+
+                // gravity_values and gravity_values_map contain values computed during octree building
+                // while cached_values and tmp_gravity_values contain gpu computed values; these data structures
+                // are not modified during octree building, while gravitu_values and gravity_values_map are
+                // cleared and filled each time octree building is called
+                gravity_values.clear();
+                gravity_values_map.clear();
 
                 gravity::build_octree_with_integral_optimized(
                         precision,
                         octree,
                         0,
-                        octree_depth,
+                        cached_octree_depth,
                         glm::make_vec3(min),
                         edge,
                         glm::ivec3{0, 0, 0},
-                        (int)std::pow(2, octree_depth) * 4,
+                        (int)std::pow(2, cached_octree_depth) * 4,
                         gravity_values,
                         tmp_gravity_values,
                         cached_values,
+                        gravity_values_map,
                         tubes, G, cylinder_R
                         );
-                std::cout << "max size: " << (32.f/7.f)*std::pow(8, octree_depth + 1) - 32.f/7.f + 12.f*std::pow((int)std::pow(2, octree_depth) + 1, 3)<< " byte" << std::endl;
+                std::cout << "max size: " << (32.f/7.f)*std::pow(8, cached_octree_depth + 1) - 32.f/7.f + 12.f*std::pow((int)std::pow(2, cached_octree_depth) + 1, 3)<< " byte" << std::endl;
                 std::cout << "true size: " << octree.size()*4 + gravity_values.size()*12 << " byte" << std::endl;
-                std::cout << "cached values size " << cached_values.size() << std::endl;
-                std::cout << "gravity values size " << gravity_values.size() << std::endl;
-                std::cout << "tmp gravity values size " << tmp_gravity_values.size() << std::endl;
-                std::cout << "tempo totale";
-                t.log();
-
-                delete output;
+                //std::cout << "cached values size " << cached_values.size() << std::endl;
+                //std::cout << "gravity values size " << gravity_values.size() << std::endl;
+                //std::cout << "tmp gravity values size " << tmp_gravity_values.size() << std::endl;
+                std::cout << "tempo totale: "; t.log(); std::cout << std::endl;
             }
 
-            //if(ImGui::Button("compute gravity from octree")) {
+            if(!octree.empty()) {
+                char file_name[20];
+                ImGui::InputText("file name", file_name, 20);
+                if(ImGui::Button("write octree")) {
+                    std::ofstream ofs(file_name, std::ofstream::binary);
+                    ofs.write(reinterpret_cast<char*>(min), 3*sizeof(float));
+                    ofs.write(reinterpret_cast<char*>(&edge), sizeof(float));
+                    int octree_size = octree.size();
+                    ofs.write(reinterpret_cast<char*>(&octree_size), sizeof(int));
+                    for(int i = 0; i < octree_size; i++) {
+                        ofs.write(reinterpret_cast<char*>(&octree[i]), sizeof(int));
+                    }
+                    int gravity_values_size = gravity_values.size();
+                    ofs.write(reinterpret_cast<char*>(&gravity_values_size), sizeof(int));
+                    for(int i = 0; i < gravity_values_size; i++) {
+                        ofs.write(reinterpret_cast<char*>(glm::value_ptr(gravity_values[i])), 3*sizeof(float));
+                    }
+                }
+            }
+
+            // GRAVITY COMPUTATION FROM OCTREE - REAL TIME
             if(!octree.empty()) {
                 auto p = debug_ball_position;
                 if(!util::is_inside_box(glm::make_vec3(p), util::get_box(glm::make_vec3(min), edge))) {
-                    std::cout << "point is outside octree" << std::endl;
+                    //std::cout << "point is outside octree" << std::endl;
                 } else {
                     auto current_min = min;
                     auto current_edge = edge;
@@ -703,15 +686,10 @@ int main(int argv, char** args) {
             }
 
             // GRAVITY OUTPUTS
-            ImGui::Text("gravity: %f %f %f", gravity.x, gravity.y, gravity.z);
-            ImGui::Text("gravity from octree: %f %f %f", gravity_from_octree.x, gravity_from_octree.y, gravity_from_octree.z);
-            ImGui::Text("gravity as potential gradient: %f %f %f",
-                gravity_from_potential_gradient.x,
-                gravity_from_potential_gradient.y,
-                gravity_from_potential_gradient.z
-                );
-            ImGui::Text("gravity force: %f", glm::length(gravity));
+            ImGui::Text("gravity: %f %f %f  length: %f", gravity.x, gravity.y, gravity.z, glm::length(gravity));
+            ImGui::Text("gravity from octree: %f %f %f  length: %f", gravity_from_octree.x, gravity_from_octree.y, gravity_from_octree.z, glm::length(gravity_from_octree));
 
+            /*
             // RAY PARAMETERS INPUT
             ImGui::InputFloat3("ray origin", origin);
             ImGui::InputFloat3("ray direction", direction);
@@ -722,6 +700,7 @@ int main(int argv, char** args) {
             for(auto & intersection : intersections) {
                 ImGui::Text("intersection: ( %f, %f, %f )", intersection.x, intersection.y, intersection.z);
             }
+            */
             ImGui::End();
         }
         ImGui::End();
