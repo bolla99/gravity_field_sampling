@@ -343,7 +343,12 @@ namespace gravity {
                     );
     }
 
+    enum DIVIDE_METHOD {
+        ONE, TWO, THREE
+    };
+
     inline bool should_divide_with_integral_optimized(
+            DIVIDE_METHOD dm,
         float precision,
         int id,
         const std::vector<int>& octree,
@@ -360,9 +365,9 @@ namespace gravity {
         float G,
         float R) {
 
-        if(max_depth == 1) {
+        /*if(max_depth == 1) {
             return true;
-        }
+        }*/
 
         // box that is being tested (if it should be divided in eight boxes)
         std::array<glm::vec3, 8> box = util::get_box(box_min_position, edge);
@@ -386,36 +391,43 @@ namespace gravity {
 
         glm::vec3 test_value;
 
+        min = box_min_position;
+        int_min = int_box_min_position;
+
         // add center and half edges to locations / i locations
-        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge/2.f, min.z + edge/2.f);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge/2, int_min.z + int_edge/2);
+        if(dm == DIVIDE_METHOD::TWO || dm == DIVIDE_METHOD::THREE) {
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
+        }
 
-        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z);
-        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z);
-        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z);
-        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z);
-        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z);
-        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z);
+        if(dm == DIVIDE_METHOD::THREE) {
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z);
+            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z);
+            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z);
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z);
+            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z);
+            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z);
 
-        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z + edge/2.f);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z + int_edge/2);
-        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z + edge/2.f);
-        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z + int_edge/2);
-        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z + edge/2.f);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z + int_edge/2);
-        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z + edge/2.f);
-        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z + int_edge/2);
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z + int_edge / 2);
+            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z + int_edge / 2);
+            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
 
-        locations_vec.emplace_back(min.x + edge/2.f, min.y, min.z + edge);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y, int_min.z + int_edge);
-        locations_vec.emplace_back(min.x, min.y + edge/2.f, min.z + edge);
-        ilocations_vec.emplace_back(int_min.x, int_min.y  + int_edge/2, int_min.z + int_edge);
-        locations_vec.emplace_back(min.x + edge/2.f, min.y + edge, min.z + edge);
-        ilocations_vec.emplace_back(int_min.x + int_edge/2, int_min.y + int_edge, int_min.z + int_edge);
-        locations_vec.emplace_back(min.x + edge, min.y + edge/2.f, min.z + edge);
-        ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge/2, int_min.z + int_edge);
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z + edge);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z + int_edge);
+            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z + edge);
+            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z + int_edge);
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z + edge);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z + int_edge);
+            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z + edge);
+            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z + int_edge);
+        }
 
         for(int i = 0; i < locations_vec.size(); i++) {
             if(auto j = cached_values.find(ilocations[i]); j != cached_values.end()) {
@@ -455,6 +467,7 @@ namespace gravity {
         );
 
     void build_octree_with_integral_optimized(
+            DIVIDE_METHOD dm,
         float precision,
         std::vector<int>& octree,
         int id,
@@ -470,6 +483,46 @@ namespace gravity {
         const std::vector<tube>& tubes,
         float G, float R
         );
+
+
+    namespace potential {
+        float get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+        void build_octree(
+                float alpha,
+                std::vector<int>& octree,
+                int id,
+                int max_res,
+                glm::vec3 min,
+                float edge,
+                glm::vec3 int_min,
+                int int_edge,
+                std::unordered_map<glm::ivec3, float>& cached_values,
+                const std::vector<tube>& tubes,
+                float G, float R
+                );
+
+        inline bool should_divide(float alpha, std::array<float, 8> values) {
+            auto x_values = util::get_x_derivative_from_cube(values);
+            for(int i = 0; i < 4; i++) {
+                for(int j = i + 1; j < 4; j++) {
+                    if(abs(x_values[i] - x_values[j]) > alpha*abs(std::min(x_values[i], x_values[j]))) return true;
+                }
+            }
+            auto y_values = util::get_y_derivative_from_cube(values);
+            for(int i = 0; i < 4; i++) {
+                for(int j = i + 1; j < 4; j++) {
+                    if(abs(y_values[i] - y_values[j]) > alpha*abs(std::min(y_values[i], y_values[j]))) return true;
+                }
+            }
+            auto z_values = util::get_z_derivative_from_cube(values);
+            for(int i = 0; i < 4; i++) {
+                for(int j = i + 1; j < 4; j++) {
+                    if(abs(z_values[i] - z_values[j]) > alpha*abs(std::min(z_values[i], z_values[j]))) return true;
+                }
+            }
+            return false;
+        }
+    }
 }
 
 

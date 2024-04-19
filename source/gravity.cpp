@@ -32,20 +32,27 @@ std::vector<gravity::tube> gravity::get_tubes(
 
     // FIND XY PLANE
     glm::vec3 min = util::get_min(vertices);
-    //min.x += 0.0001; min.y += 0.0001;
-    min.x -= 0.0001; min.y -= 0.0001;
+
+    //min.x -= 0.0001; min.y -= 0.0001;
     glm::vec3 max = util::get_max(vertices);
 
-    //max.x -= 0.0001; max.y -= 0.0001;
-    max.x += 0.0001; max.y += 0.0001;
+    //max.x += 0.0001; max.y += 0.0001;
     min.z = min.z - 10;
     max.z = min.z;
 
     glm::vec3 center = (min + max) / 2.0f;
 
-    double max_extent = std::max(max.x - min.x, max.y - min.y);
+    std::cout << "get tube; min_1: " << min.x << " " << min.y << " " << min.z << std::endl;
+    std::cout << "get tube; max_1: " << max.x << " " << max.y << " " << max.z << std::endl;
+    std::cout << "get tube; center: " << center.x << " " << center.y << " " << center.z << std::endl;
 
-    min = {center.x - (max_extent / 2.0), center.y - (max_extent / 2.0f), center.z};
+    double max_extent = std::max(max.x - min.x, max.y - min.y);
+    std::cout << "max_extent: " << max_extent << std::endl;
+
+    min = {center.x - (max_extent / 2.0), center.y - (max_extent / 2.0), center.z};
+
+    std::cout << "get tube; min: " << min.x << " " << min.y << " " << min.z << std::endl;
+    std::cout << "get tube; max: " << max.x << " " << max.y << " " << max.z << std::endl;
 
     // CUBE EDGE LENGTH
     double cube_edge = (double)max_extent / (double)resolution;
@@ -54,9 +61,23 @@ std::vector<gravity::tube> gravity::get_tubes(
 
     glm::vec3 ray_dir = {0.f, 0.f, 1.f};
 
-    std::cout << "SCARTO ERRORE TRA MAX REALE E MAX CALCOLATO: " << (max.x) - (min.x + (float)((double)(resolution - 25) * cube_edge)) << std::endl;
+    auto real_max = glm::vec3{
+        min.x + (float)resolution * (float)cube_edge,
+        min.y + (float)resolution * (float)cube_edge,
+        min.z + (float)resolution * (float)cube_edge
+    };
+    std::cout << "get tube; max reale: " << real_max.x << " " << real_max.y << " " << real_max.z << std::endl;
+    //std::cout << "SCARTO ERRORE TRA MAX REALE E MAX CALCOLATO: " << (max.x) - (min.x + (float)((double)(resolution - 25) * cube_edge)) << std::endl;
 
-#pragma omp parallel for default(none), shared(cube_edge, resolution, ray_dir, tubes, min, vertices, faces, std::cout)
+    int t_left = 0;
+    int t_right = 0;
+
+    int t_up = 0;
+    float d_up = 0;
+    int t_down = 0;
+    float d_down = 0;
+
+#pragma omp parallel for default(none), shared(cube_edge, resolution, ray_dir, tubes, min, vertices, faces, std::cout, t_left, t_right, t_up, t_down, d_up, d_down)
     for(int i = 0; i < resolution + 1; i++) {
         for(int j = 0; j < resolution + 1; j++) {
             // RAY
@@ -73,9 +94,24 @@ std::vector<gravity::tube> gravity::get_tubes(
                 // TUBE
 #pragma omp critical
                 tubes.push_back({intersections[k], intersections[k + 1]});
+                if(i < (resolution + 1) / 2) t_left++; else t_right++;
+                if(j < (resolution + 1) / 2) {
+                    t_down++;
+                    d_down += glm::distance(intersections[k], intersections[k + 1]);
+                } else {
+                    t_up++;
+                    d_up += glm::distance(intersections[k], intersections[k + 1]);
+                }
             }
         }
     }
+    std::cout << "t up: " << t_up << std::endl;
+    std::cout << "t down: " << t_down << std::endl;
+    std::cout << "t left: " << t_left << std::endl;
+    std::cout << "t right: " << t_right << std::endl;
+    std::cout << "d up: " << d_up << std::endl;
+    std::cout << "d down: " << d_down << std::endl;
+
     std::cout << "get tubes time elapsed " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
     return tubes;
 }
@@ -271,10 +307,10 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point
     glm::vec3 thread_gravity[omp_get_max_threads()];
 
     for(int i = 0; i < omp_get_max_threads(); i++) {
-        thread_gravity[i] = {0, 0, 0};
+        thread_gravity[i] = {0.f, 0.f, 0.f};
     }
 
-#pragma omp parallel for default(none) shared(output, thread_gravity, tubes)
+#pragma omp parallel for default(none) shared(output, thread_gravity, tubes, std::cout)
     for(int i = 0; i < tubes.size(); i++) {
         thread_gravity[omp_get_thread_num()] += glm::vec3(output[3*i], output[3*i + 1], output[3*i + 2]);
     }
@@ -459,6 +495,7 @@ void gravity::build_octree_with_integral(
 }
 
 void gravity::build_octree_with_integral_optimized(
+        DIVIDE_METHOD dm,
         float precision,
         std::vector<int>& octree,
         int id,
@@ -497,7 +534,7 @@ void gravity::build_octree_with_integral_optimized(
         }
     }
 
-    if(max_res > 0 && should_divide_with_integral_optimized(precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
+    if(max_res > 0 && should_divide_with_integral_optimized(dm, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
         // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
 
@@ -507,10 +544,82 @@ void gravity::build_octree_with_integral_optimized(
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
             build_octree_with_integral_optimized(
-                    precision, octree, octree[id + i], max_res - 1, mins[i],
+                    dm, precision, octree, octree[id + i], max_res - 1, mins[i],
                     edge/2.f, int_mins[i],
                     int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R
                     );
         }
     }
 }
+
+float gravity::potential::get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
+    auto output = GPUComputing::get_potential_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
+
+    float output_potential = 0.f;
+
+    omp_set_num_threads(omp_get_max_threads());
+    float thread_potential[omp_get_max_threads()];
+
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        thread_potential[i] = 0.f;
+    }
+
+#pragma omp parallel for default(none) shared(output, thread_potential, tubes, std::cout)
+    for(int i = 0; i < tubes.size(); i++) {
+        thread_potential[omp_get_thread_num()] += output[i];
+    }
+
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        output_potential += thread_potential[i];
+    }
+    delete output;
+    return output_potential;
+}
+
+void gravity::potential::build_octree(
+        float alpha,
+        std::vector<int>& octree,
+        int id,
+        int max_res,
+        glm::vec3 min,
+        float edge,
+        glm::vec3 int_min,
+        int int_edge,
+        std::unordered_map<glm::ivec3, float>& cached_values,
+        const std::vector<tube>& tubes,
+        float G, float R
+) {
+    auto locations = util::get_box(min ,edge);
+    auto int_locations = util::get_int_box(int_min, int_edge);
+    std::array<float, 8> potential_values{};
+
+    for(int i = 0; i < 8; i++) {
+        if (auto k = cached_values.find(int_locations[i]); k != cached_values.end()) {
+            float f_value = k->second;
+            potential_values[i] = f_value;
+            int *value = reinterpret_cast<int *>(&f_value);
+            octree.push_back(*value);
+        } else {
+            float f_value = gravity::potential::get_potential_with_gpu(locations[i], tubes, G, R);
+            potential_values[i] = f_value;
+            cached_values.emplace(int_locations[i], f_value);
+            int *value = reinterpret_cast<int *>(&f_value);
+            octree.push_back(*value);
+        }
+    }
+
+    if(gravity::potential::should_divide(alpha, potential_values) && max_res > 0) {
+        auto mins = util::get_box(min, edge/2.f);
+        auto int_mins = util::get_int_box(int_min, int_edge/2);
+
+        for(int i = 0; i < 8; i++) {
+            octree[id + i] = (int)octree.size();
+            build_octree(
+                        alpha, octree, octree[id + i], max_res - 1, mins[i],
+                        edge/2.f, int_mins[i],
+                        int_edge / 2, cached_values, tubes, G, R);
+        }
+    }
+}
+
+
