@@ -33,6 +33,8 @@ kernel void get_gravities_from_tubes(
 
             float a = distance(p, o);
 
+            if(a < r) continue;
+
             float b = distance(t1, o);
             float c = distance(t2, o);
 
@@ -48,12 +50,11 @@ kernel void get_gravities_from_tubes(
             float fx = (G[0]*PI*pow(r,2)) *
                        ((1 / sqrt(pow(a, 2) + pow(b, 2))) - (1 / sqrt(pow(a, 2) + pow(c, 2))));
 
-           if(isnan(fx) || isnan(fy)) return;
+           if(isnan(fx) || isnan(fy)) continue;
 
             fy = -fy;
 
             if(p.z > t1.z && p.z < t2.z) {
-                        if(a < r) return;
                         fy -= 2.f * ((G[0]*PI*pow(R[0],2)) *
                                 ((b / sqrt(pow(a, 2) + pow(b, 2))))
                                 ) / a;

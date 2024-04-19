@@ -31,14 +31,15 @@ kernel void get_gravity_from_tubes(
         float PI = 3.14159265359;
 
         float r = R[0];
-        if(a < R[0] && p.z > t1.z && p.z < t2.z) {
-            return;
+        if(a <= r) {
             // use masses
+            r = a;
+            /*
             int n_of_masses = (int)floor((distance(t1, t2) / (2.0*R[0])));
             float little_cylinder_height = distance(t1, t2) / (float)(n_of_masses);
             float mass_R = pow((little_cylinder_height * pow(R[0], 2) * (3.f / 4.f)), 1.f/3.f);
             for(int i = 0; i < n_of_masses; i++) {
-                float3 mass_pos = t1 + x * (i * 2 * mass_R + mass_R);
+                float3 mass_pos = t1 + x * (i * little_cylinder_height + little_cylinder_height / 2.f);
                 float3 dir = mass_pos - p;
                 float r3 = pow(dot(dir, dir), 1.5);
                 if(length(dir) < mass_R) {
@@ -49,11 +50,13 @@ kernel void get_gravity_from_tubes(
                 contributes[3*index + 2] += (dir.z * G[0] * ((4.f/3.f)*PI*pow(mass_R, 3.f))) / r3;
             }
             return;
+            */
         }
 
         float b = distance(t1, o);
         float c = distance(t2, o);
 
+        // b is always the minor
         if(b > c) {
             float tmp = b;
             b = c;
@@ -67,11 +70,12 @@ kernel void get_gravity_from_tubes(
                    ((1 / sqrt(pow(a, 2) + pow(b, 2))) - (1 / sqrt(pow(a, 2) + pow(c, 2))));
 
        if(isnan(fx) || isnan(fy)) return;
+       //if(fx != fx || fy != fy) return;
 
         fy = -fy;
 
         if(p.z > t1.z && p.z < t2.z) {
-                    fy -= 2.f * ((G[0]*PI*pow(R[0],2)) *
+                    fy -= 2.f * ((G[0]*PI*pow(r,2)) *
                             ((b / sqrt(pow(a, 2) + pow(b, 2))))
                             ) / a;
                 }
