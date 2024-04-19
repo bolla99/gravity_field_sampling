@@ -14,6 +14,8 @@ namespace GPUComputing {
     float* get_gravity_from_point_masses_and_discrete_space(const float* pointMasses, int massesSize, const float* discreteSpace, int spaceSize, float mass_radius);
     float* get_gravity_from_tubes_with_integral(const float* tubes, int tubes_size, float* p, float R, float G);
     float* get_gravities_from_tubes_with_integral(const float* tubes, int tubes_size, const float* points, int points_size, float R, float G);
+    float* get_potentials_from_tubes_with_integral(const float* tubes, int tubes_size, const float* points, int points_size, float R, float G);
+    float* get_potential_from_tubes_with_integral(const float* tubes, int tubes_size, float* p, float R, float G);
 };
 
 #endif //GL_TEST_PROJECT_GPUCOMPUTING_HPP
