@@ -8,6 +8,7 @@
 // std
 #include <vector>
 #include <array>
+#include <iostream>
 
 // glm
 #include <glm/glm.hpp>
@@ -115,10 +116,78 @@ namespace util {
         return {(values[1] - values[0])/h, (values[3] - values[2])/h, (values[5] - values[4])/h};
     }
 
+    inline glm::vec3 get_gradient_from_box(const glm::vec3& p, const std::array<glm::vec3, 8>& locations, const std::array<float, 8>& values) {
+        auto edge = glm::distance(locations[0], locations[1]);
+        auto gradient = glm::vec3{0.f, 0.f, 0.f};
+        // x axis; interpolazione fatta sui valori y e z
+        // 1 - 0;  3 - 2; 5 - 4; 7 - 6
+        std::array<float, 4> x_values = {values[1] - values[0], values[3] - values[2], values[5] - values[4], values[7] - values[6]};
+        float first_c = p.y - locations[0].y;
+        float second_c = p.z - locations[0].z;
+        std::array<float, 4> weights = {
+                (edge - first_c) * (edge - second_c),
+                first_c * (edge - second_c),
+                (edge - first_c) * second_c,
+                first_c * second_c
+        };
+        for(int i = 0; i < 4; i++) { gradient.x -= x_values[i] * weights[i] / std::pow(edge, 3); }
+
+        // y axis x e z
+        // 2 - 0; 3 - 1; 6 - 4; 7 - 5
+        std::array<float, 4> y_values = {values[2] - values[0], values[3] - values[1], values[6] - values[4], values[7] - values[5]};
+        first_c = p.x - locations[0].x;
+        second_c = p.z - locations[0].z;
+        weights = {
+                (edge - first_c) * (edge - second_c),
+                first_c * (edge - second_c),
+                (edge - first_c) * second_c,
+                first_c * second_c
+        };
+        for(int i = 0; i < 4; i++) { gradient.y -= y_values[i] * weights[i] / std::pow(edge, 3); }
+        // z axis
+        // 4 - 0; 5 - 1; 6 - 2; 7 - 3
+        std::array<float, 4> z_values = {values[4] - values[0], values[5] - values[1], values[6] - values[2], values[7] - values[3]};
+        first_c = p.x - locations[0].x;
+        second_c = p.y - locations[0].y;
+        weights = {
+                (edge - first_c) * (edge - second_c),
+                first_c * (edge - second_c),
+                (edge - first_c) * second_c,
+                first_c * second_c
+        };
+        for(int i = 0; i < 4; i++) { gradient.z -= z_values[i] * weights[i] / std::pow(edge, 3); }
+        return gradient;
+    }
+
     // absolute comparison
     // precision -> max length of (v1 - v2 vector) allowed
     inline bool vectors_are_p_equal(const glm::vec3& v1, const glm::vec3& v2, float precision) {
         return glm::length2(v1 - v2) < precision;
+    }
+
+    inline std::array<float, 4> get_x_derivative_from_cube(const std::array<float, 8>& values) {
+        return std::array<float, 4>{
+            values[1] - values[0],
+            values[3] - values[2],
+            values[5] - values[4],
+            values[7] - values[6]
+            };
+    }
+    inline std::array<float, 4> get_y_derivative_from_cube(const std::array<float, 8>& values) {
+        return std::array<float, 4>{
+                values[2] - values[0],
+                values[3] - values[1],
+                values[6] - values[4],
+                values[7] - values[5]
+        };
+    }
+    inline std::array<float, 4> get_z_derivative_from_cube(const std::array<float, 8>& values) {
+        return std::array<float, 4>{
+                values[4] - values[0],
+                values[5] - values[1],
+                values[6] - values[2],
+                values[7] - values[3]
+        };
     }
 
     bool is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
