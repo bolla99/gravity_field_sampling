@@ -262,7 +262,7 @@ std::array<std::array<int, 3>, 8> util::get_box_indices(glm::vec3 min, float ran
     };
 }
 
-std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
+std::array<float, 8> util::barycentric_coords(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
     std::array<float, 8> volume_per_corner{};
     for(int i = 0; i < 8; i++) {
         volume_per_corner[i] = abs(box[i].x - p.x)*abs(box[i].y - p.y)*abs(box[i].z - p.z);
@@ -275,11 +275,6 @@ std::array<float, 8> util::trilinear_coordinates(const glm::vec3& p, const std::
         coords[i] = volume_per_corner[7 - i] / volume;
     }
     return coords;
-}
-
-bool util::is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
-    return p.x >= box[0].x && p.y >= box[0].y && p.z >= box[0].z &&
-           p.x <= box[7].x && p.y <= box[7].y && p.z <= box[7].z;
 }
 
 bool util::is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces) {

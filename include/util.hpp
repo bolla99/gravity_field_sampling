@@ -16,22 +16,41 @@
 #include <glm/gtc/quaternion.hpp>
 
 namespace util {
+    // returns quaternion that represents rotations from start vector to dest vector
     glm::quat rotation_between_vectors(const glm::vec3& start, const glm::vec3& dest);
 
     // cramer rule used (Ax = b, x_i = det(A_i) / det(A), A_i = A with i-column replaced with b
     glm::vec3 barycentric_coords(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& p);
 
+    // returns distance between a point and an edge {e1, e2}
     float point_edge_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2);
+
+    // returns the distance between a point and a triangle {e1, e2, e3}
+    // DEPENDS on point_edge_distance
     float point_triangle_distance(const glm::vec3& point, const glm::vec3& e1, const glm::vec3& e2, const glm::vec3& e3);
 
+    // returns volume of a tetrahedron {b1, b2, b3, v} assuming it has homogeneous density
     float tetrahedron_volume(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
+
+    // returns barycentre of a tetrahedron {b1, b2, b3, v}
     [[deprecated]] glm::vec3 tetrahedron_barycentre(const glm::vec3& b1, const glm::vec3& b2, const glm::vec3& b3, const glm::vec3& v);
 
+    // returns true if ray {ray_origin, ray_dir} intersects the triangle {t1, t2, t3}
+    // if yes the distance between ray_origin and the intersection is stored in parameter
     bool ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
+
+    // returns a vector of intersections between the ray {ray_origin, ray_dir} and multiple triangles
+    // triangles are retrieved from vertices and faces collection: faces is a collection of triple of integers, which are
+    // the indexes for the vertices collection, which contains actual triangles points.
+    // DEPENDS on ray_triangle_intersection
     [[maybe_unused]] std::vector<glm::vec3> ray_mesh_intersections(const std::vector<glm::vec3>& vertices,
                                                                                      const std::vector<glm::vec<3, unsigned int>>& faces,
                                                                                      glm::vec3 ray_origin, glm::vec3 ray_dir
     );
+
+    // same as ray_mesh_intersections, but optimizations are done regarding how many and which triangles
+    // are chosen for testing; instead base function tests all the triangles.
+    // DEPENDS on ray_triangle_intersection
     std::vector<glm::vec3> ray_mesh_intersections_optimized(const std::vector<glm::vec3>& vertices,
                                                                               const std::vector<glm::vec<3, unsigned int>>& faces,
                                                                               glm::vec3 ray_origin, glm::vec3 ray_dir
@@ -39,10 +58,11 @@ namespace util {
 
     // returns a point which has the minimum coordinate along all the three axis
     glm::vec3 get_min(const std::vector<glm::vec3>& vertices);
+
     // returns a point which has the maximum coordinate along the three axis
     glm::vec3 get_max(const std::vector<glm::vec3>& vertices);
 
-    // returns mesh max extent on xy plane
+    // returns mesh max between x and y extent
     inline float xy_mesh_max_extent(const std::vector<glm::vec3>& vertices) {
         return std::max(
             util::get_max(vertices).x - util::get_min(vertices).x,
@@ -50,8 +70,8 @@ namespace util {
             );
     }
 
-    // return an array of 4 floats; 3 first values are coordinates of the center of the cube
-    // the fourth float is the edge length
+    // return {c.x, c.y, c.z, edge} where c is the center of the cube
+    // given mix and max vertices of the cube
     inline std::array<float, 4> get_box(const glm::vec3& min, const glm::vec3& max) {
         auto center = (max + min) * 0.5f;
         float edge = std::max(max.x - min.x, max.y - min.y);
@@ -73,6 +93,7 @@ namespace util {
         };
     }
 
+    // integer version of get_box function
     inline std::array<glm::vec<3, int>, 8> get_int_box(const glm::vec<3, int>& min, int edge) {
         return {
             glm::vec3{min.x, min.y, min.z},
@@ -86,7 +107,8 @@ namespace util {
         };
     }
 
-    // box: first 3 floats are the center of the box, fourth is the edge
+    // returns a box in 8 vertices representation from the {center, edge} representation
+    // DEPENDS on get_box(min, edge)
     inline std::array<glm::vec3, 8> get_box(const std::array<float, 4>& box) {
         return get_box(
             glm::vec3{box[0] - box[3] / 2.f, box[1] - box[3] / 2.f, box[2] - box[3] / 2.f},
@@ -94,28 +116,35 @@ namespace util {
             );
     }
 
-    // allows to select a bounding box of a point from a 3d space vector
+    // returns the integer coordinated of the bounding box
+    // of the point relative to the box {min, range} and given resolution;
+    // resolution stands for number of edges in which the range is subdivided
+    // (range / resolution is performed to get sub boxes edge length)
     std::array<std::array<int, 3>, 8> get_box_indices(glm::vec3 min, float range, int resolution, glm::vec3 point);
 
+    // returns 1d coordinates given integer indices and resolution;
+    // resolution stands for number of edges
+    // the function implicitly defines the 1d vector representing a 3d grid
     inline int from_3d_indices_to_1d(std::array<int, 3> indices, int resolution) {
         return indices[0] * (resolution + 1) * (resolution + 1) + indices[1] * (resolution + 1) + indices[2];
     }
 
-    // cube geometry
-    // pre requisite: p is inside cube
-    std::array<float, 8> trilinear_coordinates(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
+    // if p is inside the box, it RETURNS the barycentric coordinates
+    std::array<float, 8> barycentric_coords(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
 
+    // RETURNS the interpolation of p given box and values
+    // DEPENDS on util::barycentric_coords(box)
     inline glm::vec3 interpolate(const glm::vec3& p, const std::array<glm::vec3, 8>& box, const std::array<glm::vec3, 8> values) {
-        auto weights = trilinear_coordinates(p, box);
+        auto weights = barycentric_coords(p, box);
         auto output = glm::vec3{};
         for(int i = 0; i < 8; i++) { output += values[i]*weights[i]; }
         return output;
     }
 
-    inline glm::vec3 get_gradient(const std::array<float, 6>& values, float h) {
-        return {(values[1] - values[0])/h, (values[3] - values[2])/h, (values[5] - values[4])/h};
-    }
-
+    // get gradient in p given box and values; derivative is computed for each of
+    // the four edge of a given axis and then the axis component of gradient is retrieved
+    // from these four derivative
+    // DEPENDS on get_x_derivative_from_cube, get_y.., get_z..
     inline glm::vec3 get_gradient_from_box(const glm::vec3& p, const std::array<glm::vec3, 8>& locations, const std::array<float, 8>& values) {
         auto edge = glm::distance(locations[0], locations[1]);
         auto gradient = glm::vec3{0.f, 0.f, 0.f};
@@ -159,12 +188,12 @@ namespace util {
         return gradient;
     }
 
-    // absolute comparison
-    // precision -> max length of (v1 - v2 vector) allowed
+    // RETURNS true if (v1 - v2) vector length is less then precision
     inline bool vectors_are_p_equal(const glm::vec3& v1, const glm::vec3& v2, float precision) {
         return glm::length2(v1 - v2) < precision;
     }
 
+    // RETURNS edge derivatives for x axis given values
     inline std::array<float, 4> get_x_derivative_from_cube(const std::array<float, 8>& values) {
         return std::array<float, 4>{
             values[1] - values[0],
@@ -173,6 +202,8 @@ namespace util {
             values[7] - values[6]
             };
     }
+
+    // RETURNS edge derivatives for y axis given values
     inline std::array<float, 4> get_y_derivative_from_cube(const std::array<float, 8>& values) {
         return std::array<float, 4>{
                 values[2] - values[0],
@@ -181,6 +212,8 @@ namespace util {
                 values[7] - values[5]
         };
     }
+
+    // RETURNS edge derivatives for z axis given values
     inline std::array<float, 4> get_z_derivative_from_cube(const std::array<float, 8>& values) {
         return std::array<float, 4>{
                 values[4] - values[0],
@@ -190,7 +223,14 @@ namespace util {
         };
     }
 
-    bool is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box);
+    // RETURNS true is p is inside box
+    inline bool is_inside_box(const glm::vec3& p, const std::array<glm::vec3, 8>& box) {
+        return p.x >= box[0].x && p.y >= box[0].y && p.z >= box[0].z &&
+               p.x <= box[7].x && p.y <= box[7].y && p.z <= box[7].z;
+    }
+
+    // RETURNS true if box is inside a mesh (vertices + faces)
+    // DEPENDS on ray_mesh_intersections
     bool is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces);
 };
 

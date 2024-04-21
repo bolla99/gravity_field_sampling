@@ -394,12 +394,12 @@ glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const
         space_cube[i] = space[indices_1d[i]];
     }
 
-    // obtain trilinear coordinates for interpolation
-    auto trilinear_coordinates = util::trilinear_coordinates(point, space_cube);
+    // obtain barycentric coordinates for interpolation
+    auto barycentric_coords = util::barycentric_coords(point, space_cube);
     glm::vec3 output_gravity{};
     // interpolation
     for(int i = 0; i < 8; i++) {
-        output_gravity +=  trilinear_coordinates[i] * gravity[indices_1d[i]];
+        output_gravity +=  barycentric_coords[i] * gravity[indices_1d[i]];
     }
     return output_gravity;
 }
