@@ -42,17 +42,22 @@ std::vector<gravity::tube> gravity::get_tubes(
 
     glm::vec3 center = (min + max) / 2.0f;
 
+    /*
     std::cout << "get tube; min_1: " << min.x << " " << min.y << " " << min.z << std::endl;
     std::cout << "get tube; max_1: " << max.x << " " << max.y << " " << max.z << std::endl;
     std::cout << "get tube; center: " << center.x << " " << center.y << " " << center.z << std::endl;
+    */
 
     double max_extent = std::max(max.x - min.x, max.y - min.y);
-    std::cout << "max_extent: " << max_extent << std::endl;
+
+    //std::cout << "max_extent: " << max_extent << std::endl;
 
     min = {center.x - (max_extent / 2.0), center.y - (max_extent / 2.0), center.z};
 
+    /*
     std::cout << "get tube; min: " << min.x << " " << min.y << " " << min.z << std::endl;
     std::cout << "get tube; max: " << max.x << " " << max.y << " " << max.z << std::endl;
+    */
 
     // CUBE EDGE LENGTH
     double cube_edge = (double)max_extent / (double)resolution;
@@ -81,17 +86,18 @@ std::vector<gravity::tube> gravity::get_tubes(
     for(int i = 0; i < resolution + 1; i++) {
         for(int j = 0; j < resolution + 1; j++) {
             // RAY
-            ray r = {{min.x + (float)((double)i * cube_edge), min.y + (float)((double)j * cube_edge), min.z}, ray_dir};
+            glm::vec3 ray_origin{min.x + (float)((double)i * cube_edge), min.y + (float)((double)j * cube_edge), min.z};
+
             // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
+            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, ray_origin, ray_dir);
 
             // FOR EACH INTERSECTIONS COUPLE
             for(int k = 0; k < intersections.size(); k += 2) {
                 /*
                 if(glm::distance(intersections[k], intersections[k + 1]) > 10) {
                     std::cout << "impossible tube second check" << std::endl;
-                }*/
-                // TUBE
+                }
+                */
 #pragma omp critical
                 tubes.push_back({intersections[k], intersections[k + 1]});
                 if(i < (resolution + 1) / 2) t_left++; else t_right++;
@@ -105,181 +111,18 @@ std::vector<gravity::tube> gravity::get_tubes(
             }
         }
     }
+
+    /*
     std::cout << "t up: " << t_up << std::endl;
     std::cout << "t down: " << t_down << std::endl;
     std::cout << "t left: " << t_left << std::endl;
     std::cout << "t right: " << t_right << std::endl;
     std::cout << "d up: " << d_up << std::endl;
     std::cout << "d down: " << d_down << std::endl;
+    */
 
     std::cout << "get tubes time elapsed " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
     return tubes;
-}
-
-std::vector<gravity::mass> gravity::get_masses_from_tube(tube t, int resolution, const std::vector<glm::vec3>& vertices) {
-    auto cube_edge = util::xy_mesh_max_extent(vertices) / (float)resolution;
-    auto cube_volume = (float)std::pow(cube_edge, 3);
-
-    float units_per_tubef, new_cube_volume;
-    int units_per_tube;
-
-    // TUBE LENGTH / UNIT
-    units_per_tubef = glm::length(t.t2 - t.t1) / cube_edge;
-    // ROUNDED
-    units_per_tube = (int) std::round((double) units_per_tubef);
-    // NEW CUBE MASS
-    new_cube_volume = (cube_volume * units_per_tubef) / (float) units_per_tube;
-
-    // TUBE VERTEX OFFSET
-    float tube_unit = glm::length(t.t2 - t.t1) / (float) units_per_tube;
-
-    std::vector<gravity::mass> masses(units_per_tube);
-
-    for (int n = 0; n < units_per_tube + 1; n++) {
-        masses.push_back({t.t1 + glm::normalize(t.t2 - t.t1) * (float) n * tube_unit, new_cube_volume});
-    }
-    return masses;
-}
-
-std::vector<gravity::mass> gravity::get_masses(
-        const std::vector<glm::vec3>& vertices,
-        const std::vector<glm::vec<3, unsigned int>>& faces,
-        int resolution,
-        float* sphere_R
-        ) {
-    omp_set_num_threads(omp_get_max_threads());
-    std::vector<tube> tubes = {};
-    std::vector<mass> volumes = {};
-
-    Uint64 start = SDL_GetTicks64();
-
-    // FIND XY PLANE
-    glm::vec3 min = util::get_min(vertices);
-    min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::get_max(vertices);
-
-    max.x -= 0.0001; max.y -= 0.0001;
-    min.z = min.z - 10;
-    max.z = min.z;
-
-    glm::vec3 center = (min + max) / 2.0f;
-
-    float x_width = max.x - min.x;
-    float y_width = max.y - min.y;
-    float max_extent = x_width;
-    if(y_width > max_extent) max_extent = y_width;
-
-    min = {center.x - (max_extent / 2.0f), center.y - (max_extent / 2.0f), center.z};
-
-    // CUBE EDGE LENGTH
-    float cube_edge = max_extent / (float)resolution;
-
-    // SET MASS SPHERE RADIUS
-    *sphere_R = (float)std::cbrt(std::pow(cube_edge, 3) * (3.f / 4.f) / M_PI);
-
-    auto cube_volume = (float)std::pow(cube_edge, 3);
-    glm::vec3 ray_dir = {0.f, 0.f, 1.f};
-
-#pragma omp parallel for default(none), shared(resolution, cube_edge, cube_volume, ray_dir, tubes, min, volumes, vertices, faces, sphere_R)
-    for(int i = 0; i < resolution + 1; i++) {
-        for(int j = 0; j < resolution + 1; j++) {
-            // RAY
-            ray r = {{min.x + (float)i * cube_edge, min.y + (float)j * cube_edge, min.z}, ray_dir};
-            // FIND INTERSECTIONS
-            std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, r.origin, r.dir);
-            if(intersections.size() == 3) intersections.erase(intersections.end() - 1);
-
-            // FOR EACH INTERSECTIONS COUPLE
-            for(int k = 0; k < intersections.size(); k += 2) {
-                // TUBE
-                tube t = {intersections[k], intersections[k + 1]};
-                float units_per_tubef, new_cube_volume;
-                int units_per_tube;
-                // TUBE LENGTH / UNIT
-                units_per_tubef = glm::length(t.t2 - t.t1) / cube_edge;
-                // ROUNDED
-                units_per_tube = (int) std::round((double) units_per_tubef);
-                // NEW CUBE MASS
-                new_cube_volume = (cube_volume * units_per_tubef) / (float) units_per_tube;
-
-                if (units_per_tube == 0) continue;
-                // TUBE VERTEX OFFSET
-                float tube_unit = glm::length(t.t2 - t.t1) / (float) units_per_tube;
-#pragma omp critical
-                *sphere_R = std::min(*sphere_R, (float)std::cbrt(std::pow(tube_unit, 3) * (3.f / 4.f) / M_PI));
-                for (int n = 0; n < units_per_tube + 1; n++) {
-#pragma omp critical
-                    volumes.push_back({t.t1 + glm::normalize(t.t2 - t.t1) * (float) n * tube_unit, new_cube_volume});
-                }
-            }
-        }
-    }
-    std::cout << "get masses time elapsed " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
-    return volumes;
-}
-
-glm::vec3 gravity::get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<tube>& tubes, glm::vec3 point) {
-    omp_set_num_threads(omp_get_max_threads());
-    glm::vec3 thread_gravity[omp_get_max_threads()];
-    for(int i = 0; i < omp_get_max_threads(); i++) {
-        thread_gravity[i] = {0, 0, 0};
-    }
-
-    Uint64 start = SDL_GetTicks64();
-    // FIND XY PLANE
-    glm::vec3 min = util::get_min(vertices);
-    min.x += 0.0001; min.y += 0.0001;
-    glm::vec3 max = util::get_max(vertices);
-
-    max.x -= 0.0001; max.y -= 0.0001;
-    min.z = min.z - 10;
-    max.z = min.z;
-
-    float x_width = max.x - min.x;
-    float y_width = max.y - min.y;
-    float max_extent = x_width;
-    if(y_width > max_extent) max_extent = y_width;
-
-    // CUBE EDGE LENGTH
-    float cube_edge = max_extent / (float)resolution;
-    auto cube_volume = (float)pow(max_extent / (float)resolution, 3);
-    float G = 10.0;
-
-    glm::vec3 ray_dir = {0.f, 0.f, 1.f};
-#pragma omp parallel default(none), shared(tubes, cube_edge, cube_volume, point, thread_gravity, G)
-    {
-        float units_per_tubef, tube_unit;
-        float new_cube_volume, r3;
-        int units_per_tube;
-#pragma omp for
-        for (auto &t: tubes) {
-            // TUBE LENGTH / UNIT
-            units_per_tubef = glm::length(t.t2 - t.t1) / cube_edge;
-            // ROUNDED
-            units_per_tube = (int) std::round((double) units_per_tubef);
-            // NEW CUBE MASS
-            new_cube_volume = (cube_volume * units_per_tubef) / (float)units_per_tube;
-
-            if (units_per_tube == 0) continue;
-            // TUBE VERTEX OFFSET
-            tube_unit = glm::length(t.t2 - t.t1) / (float) units_per_tube;
-            for (int n = 0; n < units_per_tube + 1; n++) {
-                glm::vec3 mass = t.t1 + glm::normalize(t.t2 - t.t1) * (float) n * tube_unit;
-                glm::vec3 dir = mass - point;
-                r3 = (float)pow(glm::length(dir), 3);
-                if (r3 > -std::numeric_limits<float>::epsilon() && r3 < std::numeric_limits<float>::epsilon()) {
-                    continue;
-                }
-                thread_gravity[omp_get_thread_num()] =
-                        thread_gravity[omp_get_thread_num()] + (dir * new_cube_volume * G) / r3;
-            }
-        }
-    }
-    glm::vec3 gravity = {0, 0, 0};
-    for(int i = 0; i < omp_get_max_threads(); i++) {
-        gravity = gravity + thread_gravity[i];
-    }
-    return gravity;
 }
 
 glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<tube>& tubes, float G, float cylinder_R) {
@@ -292,12 +135,13 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const s
 
 #pragma omp parallel for default(none) shared(tubes, point, G, thread_gravity, cylinder_R)
     for(auto t : tubes) {
-        thread_gravity[omp_get_thread_num()] += gravity::get_gravity_from_tube(point, t, G, cylinder_R);
+        thread_gravity[omp_get_thread_num()] += gravity::get_gravity_from_tube_with_integral(point, t, G, cylinder_R);
     }
     for(int i = 0; i < omp_get_max_threads(); i++) force_from_integral += thread_gravity[i];
     return force_from_integral;
 }
 
+// depends on GPUComputing
 glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
     auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
 
@@ -322,62 +166,7 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point
     return output_gravity;
 }
 
-float gravity::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
-    omp_set_num_threads(omp_get_max_threads());
-    float thread_potential[omp_get_max_threads()];
-    for(int i = 0; i < omp_get_max_threads(); i++) {
-        thread_potential[i] = 0.f;
-    }
-    float potential = 0.f;
-
-#pragma omp parallel for default(none) shared(tubes, point, G, thread_potential, cylinder_R)
-    for(auto t : tubes) {
-        thread_potential[omp_get_thread_num()] += gravity::get_potential_from_tube(point, t, G, cylinder_R);
-    }
-    for(int i = 0; i < omp_get_max_threads(); i++) potential += thread_potential[i];
-    return potential;
-}
-
-glm::vec3 gravity::get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point) {
-    glm::vec3 dir = m.p - point;
-    auto r3 = (float)pow(glm::length(dir), 3);
-    if(glm::length(dir) < sphere_R) {
-        r3 = (float)std::pow(sphere_R, 3);
-    }
-    if (r3 > -std::numeric_limits<float>::epsilon() && r3 < std::numeric_limits<float>::epsilon()) {
-        return {0.0, 0.0, 0.0};
-    }
-    return (dir * m.m * G) / r3;
-}
-
-glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float sphere_R, glm::vec3 point) {
-    Uint64 start = SDL_GetTicks64();
-    omp_set_num_threads(omp_get_max_threads());
-    glm::vec3 thread_gravity[omp_get_max_threads()];
-    for(int i = 0; i < omp_get_max_threads(); i++) {
-        thread_gravity[i] = {0, 0, 0};
-    }
-#pragma omp parallel for default(none) shared(masses, point, G, thread_gravity, sphere_R)
-    for(auto & mass : masses) {
-        glm::vec3 dir = mass.p - point;
-        auto r3 = (float)pow(glm::length(dir), 3);
-        if(glm::length(dir) < sphere_R) {
-#pragma omp critical
-            r3 = (float)std::pow(sphere_R, 3);
-        }
-        if (r3 > -std::numeric_limits<float>::epsilon() && r3 < std::numeric_limits<float>::epsilon()) {
-            continue;
-        }
-        thread_gravity[omp_get_thread_num()] = thread_gravity[omp_get_thread_num()] + (dir * mass.m * G) / r3;
-    }
-    glm::vec3 gravity{0, 0, 0};
-    for(int i = 0; i < omp_get_max_threads(); i++) {
-        gravity = gravity + thread_gravity[i];
-    }
-    std::cout << "gravity masses time elapsed: " << (float)(SDL_GetTicks64() - start) / 1000.f << std::endl;
-    return gravity;
-}
-
+// requires 1d collection representing regular grid of gravity sample values
 glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
     // get indices of bounding box
     auto indices = util::get_box_indices(space.front(), abs(space.back().x - space.front().x), resolution, point);
@@ -420,81 +209,7 @@ std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, float edge, in
     return v;
 }
 
-float gravity::volume(
-        const std::vector<glm::vec3>& vertices,
-        const std::vector<glm::vec<3, unsigned int>>& faces,
-        const glm::vec3& t) {
-    float volume = 0.f;
-    for(auto & face : faces) {
-        tetrahedron tetrahedron = {
-                vertices[face.x - 1],
-                vertices[face.y - 1],
-                vertices[face.z - 1],
-                t};
-        volume += util::tetrahedron_volume(tetrahedron.b1, tetrahedron.b2, tetrahedron.b3, tetrahedron.v) * 10;
-    }
-    return volume;
-}
-
 void gravity::build_octree(
-    float precision,
-    std::vector<node>& octree,
-    int id,
-    int max_res,
-    glm::vec3 min,
-    float edge,
-    const std::vector<glm::vec3>& gravity,
-    const std::vector<glm::vec3>& space, int resolution
-    ) {
-    if(should_divide(precision, octree[id], min, edge, gravity, space, resolution) && max_res > 0) {
-        // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
-        // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
-        octree[id].first_child_id = static_cast<int>(octree.size());
-        delete octree[id].gravity_octant;
-        octree[id].gravity_octant = nullptr;
-
-        max_res--;
-        auto min_box = util::get_box(min, edge/2.0f);
-        for(int i = 0; i < 8; i++) {
-            octree.push_back(build_node(min_box[i], edge/2.0f, gravity, space, resolution));
-        }
-
-        for(int i = 0; i < 8; i++) {
-            build_octree(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, gravity, space, resolution);
-        }
-    }
-}
-
-void gravity::build_octree_with_integral(
-    float precision,
-    std::vector<node>& octree,
-    int id,
-    int max_res,
-    glm::vec3 min,
-    float edge,
-    const std::vector<tube>& tubes,
-    float G, float R
-    ) {
-    if(should_divide_with_integral(precision, octree[id], min, edge, tubes, G, R) && max_res > 0) {
-        // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
-        // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
-        octree[id].first_child_id = static_cast<int>(octree.size());
-        delete octree[id].gravity_octant;
-        octree[id].gravity_octant = nullptr;
-
-        max_res--;
-        auto min_box = util::get_box(min, edge/2.0f);
-        for(int i = 0; i < 8; i++) {
-            octree.push_back(build_node_with_integral(min_box[i], edge/2.0f, tubes, G, R));
-        }
-
-        for(int i = 0; i < 8; i++) {
-            build_octree_with_integral(precision, octree, octree[id].first_child_id + i, max_res, min_box[i], edge/2.0f, tubes, G, R);
-        }
-    }
-}
-
-void gravity::build_octree_with_integral_optimized(
         DIVIDE_METHOD dm,
         float precision,
         std::vector<int>& octree,
@@ -534,7 +249,7 @@ void gravity::build_octree_with_integral_optimized(
         }
     }
 
-    if(max_res > 0 && should_divide_with_integral_optimized(dm, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
+    if(max_res > 0 && should_divide(dm, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
         // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
 
@@ -543,13 +258,59 @@ void gravity::build_octree_with_integral_optimized(
 
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
-            build_octree_with_integral_optimized(
+            build_octree(
                     dm, precision, octree, octree[id + i], max_res - 1, mins[i],
                     edge/2.f, int_mins[i],
                     int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R
                     );
         }
     }
+}
+
+glm::vec3 gravity::get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity_values, int* depth) {
+    auto current_min = min;
+    auto current_edge = edge;
+
+    std::array<glm::vec3, 8> values{};
+    std::array<glm::vec3, 8> box{};
+
+    int i = 0;
+    for(int d = 0;; d++) {
+        if(octree[i] <= 0) {
+            // leaf: from i to i + 8 retreive gravity values and interpolate
+            for(int j = 0; j < 8; j++) values[j] = gravity_values[-octree[i + j]];
+            box = util::get_box(glm::make_vec3(current_min), current_edge);
+            *depth = d;
+            return util::interpolate(
+                    glm::make_vec3(p),
+                    box,
+                    values);
+        } else {
+            int k = 0;
+            if(p[0] > current_min[0] + current_edge/2.f) k += 1;
+            if(p[1] > current_min[1] + current_edge/2.f) k += 2;
+            if(p[2] > current_min[2] + current_edge/2.f) k += 4;
+            i = octree[i + k];
+            current_edge /= 2.f;
+            current_min = util::get_box(glm::make_vec3(current_min), current_edge)[k];
+        }
+    }
+}
+
+float gravity::potential::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
+    omp_set_num_threads(omp_get_max_threads());
+    float thread_potential[omp_get_max_threads()];
+    for(int i = 0; i < omp_get_max_threads(); i++) {
+        thread_potential[i] = 0.f;
+    }
+    float potential = 0.f;
+
+#pragma omp parallel for default(none) shared(tubes, point, G, thread_potential, cylinder_R)
+    for(auto t : tubes) {
+        thread_potential[omp_get_thread_num()] += gravity::potential::get_potential_from_tube_with_integral(point, t, G, cylinder_R);
+    }
+    for(int i = 0; i < omp_get_max_threads(); i++) potential += thread_potential[i];
+    return potential;
 }
 
 float gravity::potential::get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
@@ -618,6 +379,34 @@ void gravity::potential::build_octree(
                         alpha, octree, octree[id + i], max_res - 1, mins[i],
                         edge/2.f, int_mins[i],
                         int_edge / 2, cached_values, tubes, G, R);
+        }
+    }
+}
+
+glm::vec3 gravity::potential::get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, int* depth) {
+    auto current_min = min;
+    auto current_edge = edge;
+
+    int i = 0;
+    for(int d = 0;; d++) {
+        if(octree[i] <= 0) {
+            // leaf: from i to i + 8 retreive gravity values and interpolate
+            auto box = util::get_box(glm::make_vec3(current_min), current_edge);
+            auto values = std::array<float, 8>{};
+            for(int j = 0; j < 8; j++) {
+                auto pot = reinterpret_cast<const float*>(&octree[i+j]);
+                values[j] = *pot;
+            }
+            *depth = d;
+            return util::get_gradient_from_box(glm::make_vec3(p), box, values);
+        } else {
+            int k = 0;
+            if(p[0] > current_min[0] + current_edge/2.f) k += 1;
+            if(p[1] > current_min[1] + current_edge/2.f) k += 2;
+            if(p[2] > current_min[2] + current_edge/2.f) k += 4;
+            i = octree[i + k];
+            current_edge /= 2.f;
+            current_min = util::get_box(glm::make_vec3(current_min), current_edge)[k];
         }
     }
 }

@@ -19,26 +19,6 @@ namespace gravity {
     struct tube {
         glm::vec3 t1, t2;
     };
-    // point mass
-    struct mass {
-        glm::vec3 p;
-        float m;
-    };
-    struct ray {
-        glm::vec3 origin;
-        glm::vec3 dir; // to be normalized if needed
-    };
-    struct tetrahedron {
-        glm::vec3 b1, b2, b3, v;
-    };
-    struct box {
-        glm::vec3 center;
-        float edge;
-    };
-    struct gravity_cube {
-        box b;
-        std::array<glm::vec3, 8> g;
-    };
 
     std::vector<tube> get_tubes(
             const std::vector<glm::vec3>& vertices,
@@ -46,17 +26,9 @@ namespace gravity {
             int resolution,
             float* cylinder_R
             );
-    std::vector<mass> get_masses_from_tube(tube t, int resolution, const std::vector<glm::vec3>& vertices);
 
-    std::vector<mass> get_masses(
-            const std::vector<glm::vec3>& vertices,
-            const std::vector<glm::vec<3, unsigned int>>& faces,
-            int resolution,
-            float* sphere_R
-            );
-
-    // for tubes parallel to z axis
-    inline glm::vec3 get_gravity_from_tube(glm::vec3 p, tube t, float G, float cylinder_R) {
+    // methods that uses integral method
+    inline glm::vec3 get_gravity_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
         // t1 -> p
         auto t1_p = p - t.t1;
 
@@ -121,234 +93,25 @@ namespace gravity {
 
         return glm::mat3{x, y, z} * glm::vec3{fx, fy, 0};
     }
-
-    inline float get_potential_from_tube(glm::vec3 p, tube t, float G, float cylinder_R) {
-        auto t1_p = p - t.t1;
-
-        int left = 1;
-
-        // new coordinate system x_axis
-        auto x = glm::normalize(t.t2 - t.t1);
-        if(glm::distance2(t.t2, p) < glm::distance2(t.t1, p)) {
-            x = glm::normalize(t.t1 - t.t2);
-            left = -1;
-        }
-
-        // new coordinate system origin
-        auto o = t.t1 + x * glm::dot(x, t1_p);
-
-        auto a = std::max(glm::distance(p, o), cylinder_R);
-        auto b = glm::distance(t.t1, o);
-        auto c = glm::distance(t.t2, o);
-
-        auto integral_c = 0.5f*(float)std::log(2*c*(sqrt(pow(a, 2) + pow(c, 2)) + c)/pow(a, 2) + 1);
-        auto integral_b = 0.5f*(float)std::log(2*b*(sqrt(pow(a, 2) + pow(b, 2)) + b)/pow(a, 2) + 1);
-
-        // se p + in mezzo al tubo, devo sommare integrale da b a c a 2*integrale da 0 a b
-        if(p.z >= t.t1.z && p.z <= t.t2.z) {
-            return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*(integral_c + integral_b);
-        }
-
-        return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
-    }
-
-    glm::vec3 get_gravity_from_tubes(const std::vector<glm::vec3>& vertices, int resolution, const std::vector<tube>& tubes, glm::vec3 point);
     glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+
+    // gpu function
     glm::vec3 get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
-    float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
-
-    glm::vec3 get_gravity_from_mass(gravity::mass m, float G, float sphere_R, glm::vec3 point);
-    glm::vec3 get_gravity_from_masses(const std::vector<gravity::mass>& masses, float G, float sphere_R, glm::vec3 point);
-
     // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point
-    // space and gravity vector are meant to be precomputed during a non real-time phase, while
-    // this function is meant to be called in real-time by interpolating precomputed values and compute
-    // gravity for a given point;
-    // min is the min space vertex of the box of which gravity has been previoudly computed
-    // min, range and resolution are needed to find indices of the bounding box, then
-    // the spatial bounding box coordinates are retrived and used to interpolate the gravity values of each
-    // bounding box vertex;
     glm::vec3 get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution);
 
 
-    // vettore monodimensionale for(x) {for(y) {for(z)}}}
-    // divite lo spazio su un asse in resolution segmenti (resolution + 1 campioni)
+    // monodimensional vector for(x) {for(y) {for(z)}}}
+    // resolution stands for number of segments, which means resolution + 1 gravity samples
     std::vector<glm::vec3> get_discrete_space(glm::vec3 min, float edge, int resolution);
-
-    float volume(
-            const std::vector<glm::vec3>& vertices,
-            const std::vector<glm::vec<3, unsigned int>>& faces,
-            const glm::vec3& t);
-
-    // OCTREE CONSTRUCTION STUFF
-    struct node {
-        // first_child_id = -1 -> leaf node
-        int first_child_id;
-        std::array<glm::vec3, 8>* gravity_octant;
-    };
-
-    // if child > 0 then child represent the index of the first of the eight children, so the node
-    // is an internal node; if child <= 0, then abs(child) represents the index of an array from which you
-    // can retreive the gravity value for that node -> the node is a leaf
-    struct octree {
-        int child;
-    };
-
-    struct gravity_field {
-        glm::vec3 min;
-        float edge;
-        std::vector<node> gravity_octree;
-    };
-
-    // create leaf node ( leaf: next_id = 0 ) next_id should be renamed first_child_id
-    inline node build_node(glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
-        return node {
-            -1,
-            new std::array<glm::vec3, 8>{
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x, min.y, min.z}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x + edge, min.y, min.z}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x, min.y + edge, min.z}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x + edge, min.y + edge, min.z}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x, min.y, min.z + edge}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x + edge, min.y, min.z + edge}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x, min.y + edge, min.z + edge}, gravity, space, resolution
-                    ),
-                gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::vec3{min.x + edge, min.y + edge, min.z + edge}, gravity, space, resolution
-                    ),
-            }
-        };
-    }
-
-    inline node build_node_with_integral(glm::vec3 min, float edge, const std::vector<tube>& tubes, float G, float R) {
-        return node {
-            -1,
-            new std::array<glm::vec3, 8>{
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x, min.y, min.z}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x + edge, min.y, min.z}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x, min.y + edge, min.z}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x + edge, min.y + edge, min.z}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x, min.y, min.z + edge}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x + edge, min.y, min.z + edge}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x, min.y + edge, min.z + edge}, tubes, G, R
-                    ),
-                gravity::get_gravity_from_tubes_with_integral(
-                    glm::vec3{min.x + edge, min.y + edge, min.z + edge}, tubes, G, R
-                    ),
-            }
-        };
-    }
-
-    // check if a leaf node should be divided
-    inline bool should_divide(float precision, node n, glm::vec3 local_min, float edge, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
-        std::array<glm::vec3, 8> cube = util::get_box(local_min, edge);
-        glm::vec3 min = glm::vec3{local_min.x + edge/4.0, local_min.y + edge/4.0, local_min.z + edge/4.0};
-        return                   !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x, min.y, min.z}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x + edge/2.0, min.y, min.z}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y + edge/2.0, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x, min.y + edge/2.0, min.z}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y + edge/2.0, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x + edge/2.0, min.y + edge/2.0, min.z}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x, min.y, min.z + edge/2.0}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x + edge/2.0, min.y, min.z + edge/2.0}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y + edge/2.0, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x, min.y + edge/2.0, min.z + edge/2.0}, gravity, space, resolution),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y + edge/2.0, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_1D_precomputed_vector({min.x + edge/2.0, min.y + edge/2.0, min.z + edge/2.0}, gravity, space, resolution),
-                            precision
-                    );
-    }
-
-    inline bool should_divide_with_integral(float precision, node n, glm::vec3 local_min, float edge, const std::vector<tube>& tubes, float G, float R) {
-        std::array<glm::vec3, 8> cube = util::get_box(local_min, edge);
-        glm::vec3 min = glm::vec3{local_min.x + edge/4.0, local_min.y + edge/4.0, local_min.z + edge/4.0};
-        return                   !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x, min.y, min.z}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x + edge/2.0, min.y, min.z}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y + edge/2.0, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x, min.y + edge/2.0, min.z}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y + edge/2.0, min.z}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x + edge/2.0, min.y + edge/2.0, min.z}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x, min.y, min.z + edge/2.0}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x + edge/2.0, min.y, min.z + edge/2.0}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x, min.y + edge/2.0, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x, min.y + edge/2.0, min.z + edge/2.0}, tubes, G, R),
-                            precision
-                            ) || !util::vectors_are_p_equal(
-                            util::interpolate({min.x + edge/2.0, min.y + edge/2.0, min.z + edge/2.0}, cube, *n.gravity_octant),
-                            get_gravity_from_tubes_with_integral({min.x + edge/2.0, min.y + edge/2.0, min.z + edge/2.0}, tubes, G, R),
-                            precision
-                    );
-    }
 
     enum DIVIDE_METHOD {
         ONE, TWO, THREE
     };
 
-    inline bool should_divide_with_integral_optimized(
-            DIVIDE_METHOD dm,
+    inline bool should_divide(
+        DIVIDE_METHOD dm,
         float precision,
         int id,
         const std::vector<int>& octree,
@@ -445,28 +208,6 @@ namespace gravity {
     }
 
     void build_octree(
-        float precision,
-        std::vector<node>& octree,
-        int id,
-        int max_res,
-        glm::vec3 min,
-        float edge,
-        const std::vector<glm::vec3>& gravity,
-        const std::vector<glm::vec3>& space, int resolution
-        );
-
-    void build_octree_with_integral(
-        float precision,
-        std::vector<node>& octree,
-        int id,
-        int max_res,
-        glm::vec3 min,
-        float edge,
-        const std::vector<tube>& tubes,
-        float G, float R
-        );
-
-    void build_octree_with_integral_optimized(
             DIVIDE_METHOD dm,
         float precision,
         std::vector<int>& octree,
@@ -484,9 +225,44 @@ namespace gravity {
         float G, float R
         );
 
+    // returns gravity in p from given gravity octree, min and edge and gravity_values
+    // depth stores depth at which gravity is computed (depth of box leaf that contains locaiton p)
+    glm::vec3 get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity_values, int* depth);
 
     namespace potential {
+        inline float get_potential_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
+            auto t1_p = p - t.t1;
+
+            int left = 1;
+
+            // new coordinate system x_axis
+            auto x = glm::normalize(t.t2 - t.t1);
+            if(glm::distance2(t.t2, p) < glm::distance2(t.t1, p)) {
+                x = glm::normalize(t.t1 - t.t2);
+                left = -1;
+            }
+
+            // new coordinate system origin
+            auto o = t.t1 + x * glm::dot(x, t1_p);
+
+            auto a = std::max(glm::distance(p, o), cylinder_R);
+            auto b = glm::distance(t.t1, o);
+            auto c = glm::distance(t.t2, o);
+
+            auto integral_c = 0.5f*(float)std::log(2*c*(sqrt(pow(a, 2) + pow(c, 2)) + c)/pow(a, 2) + 1);
+            auto integral_b = 0.5f*(float)std::log(2*b*(sqrt(pow(a, 2) + pow(b, 2)) + b)/pow(a, 2) + 1);
+
+            // se p + in mezzo al tubo, devo sommare integrale da b a c a 2*integrale da 0 a b
+            if(p.z >= t.t1.z && p.z <= t.t2.z) {
+                return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*(integral_c + integral_b);
+            }
+
+            return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
+        }
+        float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+
         float get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+
         void build_octree(
                 float alpha,
                 std::vector<int>& octree,
@@ -522,6 +298,10 @@ namespace gravity {
             }
             return false;
         }
+
+        // returns gravity in p from given potential octree, min and edge
+        // depth stores depth at which gravity is computed (depth of box leaf that contains locaiton p)
+        glm::vec3 get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, int* depth);
     }
 }
 

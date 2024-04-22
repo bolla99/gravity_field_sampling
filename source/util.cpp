@@ -285,3 +285,14 @@ bool util::is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<gl
     }
     return true;
 }
+
+float util::volume(
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces,
+        const glm::vec3& t) {
+    float volume = 0.f;
+    for(auto & face : faces) {
+        volume += util::tetrahedron_volume(vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], t) * 10;
+    }
+    return volume;
+}

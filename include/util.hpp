@@ -232,6 +232,13 @@ namespace util {
     // RETURNS true if box is inside a mesh (vertices + faces)
     // DEPENDS on ray_mesh_intersections
     bool is_box_inside_mesh(std::array<glm::vec3, 8> box, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec<3, unsigned int>>& faces);
+
+    // computes mesh volume with tetrahedrons method
+    float volume(
+            const std::vector<glm::vec3>& vertices,
+            const std::vector<glm::vec<3, unsigned int>>& faces,
+            const glm::vec3& t);
+
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP
