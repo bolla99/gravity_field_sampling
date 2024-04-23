@@ -259,7 +259,7 @@ void gravity::build_octree(
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
             build_octree(
-                    dm, precision, octree, octree[id + i], max_res - 1, mins[i],
+                    sd_method, precision, octree, octree[id + i], max_res - 1, mins[i],
                     edge/2.f, int_mins[i],
                     int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R
                     );
