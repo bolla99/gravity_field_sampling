@@ -106,12 +106,8 @@ namespace gravity {
     // resolution stands for number of segments, which means resolution + 1 gravity samples
     std::vector<glm::vec3> get_discrete_space(glm::vec3 min, float edge, int resolution);
 
-    enum DIVIDE_METHOD {
-        ONE, TWO, THREE
-    };
-
     inline bool should_divide(
-        DIVIDE_METHOD dm,
+        int sd_method,
         float precision,
         int id,
         const std::vector<int>& octree,
@@ -158,12 +154,12 @@ namespace gravity {
         int_min = int_box_min_position;
 
         // add center and half edges to locations / i locations
-        if(dm == DIVIDE_METHOD::TWO || dm == DIVIDE_METHOD::THREE) {
+        if(sd_method > 0) {
             locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
             ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
         }
 
-        if(dm == DIVIDE_METHOD::THREE) {
+        if(sd_method == 2) {
             locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z);
             ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z);
             locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z);
@@ -208,7 +204,7 @@ namespace gravity {
     }
 
     void build_octree(
-            DIVIDE_METHOD dm,
+        int sd_method,
         float precision,
         std::vector<int>& octree,
         int id,

@@ -210,7 +210,7 @@ std::vector<glm::vec3> gravity::get_discrete_space(glm::vec3 min, float edge, in
 }
 
 void gravity::build_octree(
-        DIVIDE_METHOD dm,
+        int sd_method,
         float precision,
         std::vector<int>& octree,
         int id,
@@ -249,7 +249,7 @@ void gravity::build_octree(
         }
     }
 
-    if(max_res > 0 && should_divide(dm, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
+    if(max_res > 0 && should_divide(sd_method, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
         // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
 

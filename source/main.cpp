@@ -239,15 +239,11 @@ int main(int argv, char** args) {
     // parameters used where function parameter "resolution" is required.
     int gravity_resolution = 127;
 
-    // mass radius
-    float sphere_R;
     float cylinder_R;
 
     // G constant
     float G = 10;
 
-    // masses container
-    std::vector<gravity::mass> masses{};
     std::vector<gravity::tube> tubes{};
 
     // octree data
@@ -311,9 +307,6 @@ int main(int argv, char** args) {
         float depth;
     };
     std::vector<octree_rendering_unit> octree_rendering{};
-
-    // mesh volume
-    float volume = 0.f;
 
     // DEBUG RAY; used for ray - mesh intersection
     float origin[3] = {0, 0, 0};
@@ -501,7 +494,6 @@ int main(int argv, char** args) {
         // GRAVITY CALCULATION OPERATIONS
         if(msh.is_loaded()) {
             ImGui::Begin("GRAVITY PROCESSING");
-            ImGui::Text("Volume %f", volume);
 
             ImGui::SliderInt("tubes resolution (must be odd)", &gravity_resolution, 0, 1023);
             ImGui::SliderFloat("G", &G, 0, 100);
@@ -510,10 +502,6 @@ int main(int argv, char** args) {
             ImGui::SliderFloat("point z", &potential_point[2], -5, 5);
             ImGui::InputFloat3("point", potential_point);
 
-            if(ImGui::Button("set up masses")) {
-                masses.erase(masses.begin(), masses.end());
-                masses = gravity::get_masses(msh.get_vertices(), msh.get_faces(), gravity_resolution, &sphere_R);
-            }
             if(ImGui::Button("set up tubes")) {
                 tubes.erase(tubes.begin(), tubes.end());
                 tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &cylinder_R);
@@ -698,8 +686,8 @@ int main(int argv, char** args) {
                 gravity_values.clear();
                 gravity_values_map.clear();
 
-                gravity::build_octree_with_integral_optimized(
-                        static_cast<gravity::DIVIDE_METHOD>(should_divide_method),
+                gravity::build_octree(
+                        should_divide_method,
                         precision,
                         octree,
                         0,
@@ -787,6 +775,8 @@ int main(int argv, char** args) {
                 std::cout << "tempo totale: "; t.log(); std::cout << std::endl;
             }
 
+            // get locations from octree
+            // locations are placed in the same order of sampled values vector
             if(ImGui::Button("set up locations vector for potential computation")) {
                 octree_space_locations.clear();
                 octree_space_locations.resize(gravity_values.size());
@@ -807,6 +797,7 @@ int main(int argv, char** args) {
                 }
             }
 
+            // compute a potential values vector from locations vector
             if(ImGui::Button("fill potential values")) {
                 potential_values.clear();
                 auto output = GPUComputing::get_potentials_from_tubes_with_integral(
@@ -819,6 +810,11 @@ int main(int argv, char** args) {
                 }
             }
 
+            // WRITE FILE
+            // file structure
+            // min (3 * float) edge (float) octree_size (32bit int) octree values
+            // gravity values size (32bit int) gravity values
+            // endl endl endl "file info: " ...
             if(!octree.empty()) {
                 char file_name[20];
                 ImGui::InputText("file name", file_name, 20);
@@ -838,122 +834,62 @@ int main(int argv, char** args) {
                     }
                     ofs << std::endl << std::endl << std::endl;
                     ofs << "file info:" << std::endl;
+                    ofs << "mesh: " << mesh_browser.GetSelected().string() << std::endl;
+                    ofs << "min: " << min[0] << " " << min[1] << " " << min[2] << std::endl;
+                    ofs << "edge: " << edge << std::endl;
+                    ofs << "this is a gravity values file" << std::endl;
+                    ofs << "last should divide iteration method: " << std::endl;
+                    ofs << "should divide method: " << std::endl;
                     ofs << "octree depth: " << cached_octree_depth;
                 }
             }
 
-            int d;
-            std::array<glm::vec3, 8> values{};
-            std::array<glm::vec3, 8> box{};
+            if(!potential_octree.empty()) {
+                char file_name[20];
+                ImGui::InputText("file name", file_name, 20);
+                if(ImGui::Button("write potential octree")) {
+                    std::ofstream ofs(file_name, std::ofstream::binary);
+                    ofs.write(reinterpret_cast<char*>(min), 3*sizeof(float));
+                    ofs.write(reinterpret_cast<char*>(&edge), sizeof(float));
+                    int octree_size = potential_octree.size();
+                    ofs.write(reinterpret_cast<char*>(&octree_size), sizeof(int));
+                    for(int i = 0; i < octree_size; i++) {
+                        ofs.write(reinterpret_cast<char*>(&octree[i]), sizeof(int));
+                    }
 
-            // GRAVITY COMPUTATION FROM OCTREE - REAL TIME
+                    ofs << std::endl << std::endl << std::endl;
+                    ofs << "file info:" << std::endl;
+                    ofs << "mesh: " << mesh_browser.GetSelected().string() << std::endl;
+                    ofs << "min: " << min[0] << " " << min[1] << " " << min[2] << std::endl;
+                    ofs << "edge: " << edge << std::endl;
+                    ofs << "this is a potential file" << std::endl;
+                    ofs << "last should divide iteration method: " << std::endl;
+                    ofs << "should divide method: " << std::endl;
+                    ofs << "octree depth: " << cached_octree_depth;
+                }
+            }
+
+            // GRAVITY COMPUTATION FROM OCTREE IN REAL TIME
+            int d = 0;
             if(!octree.empty()) {
                 auto p = debug_ball_position;
-                if(!util::is_inside_box(glm::make_vec3(p), util::get_box(glm::make_vec3(min), edge))) {
-                    //std::cout << "point is outside octree" << std::endl;
-                } else {
-                    auto current_min = min;
-                    auto current_edge = edge;
-
-                    int i = 0;
-                    for(int depth = 0;; depth++) {
-                        if(octree[i] <= 0) {
-                            for(int j = 0; j < 8; j++) values[j] = gravity_values[-octree[i + j]];
-                            box = util::get_box(glm::make_vec3(current_min), current_edge);
-                            gravity_from_octree = util::interpolate(
-                                    glm::make_vec3(p),
-                                    box,
-                                    values
-                                    );
-                            d = depth;
-
-                            if(!potential_values.empty()) {
-                                auto p_values = std::array<float, 8>{};
-                                for(int j = 0; j < 8; j++) p_values[j] = potential_values[-octree[i + j]];
-                                gravity_from_octree_potential = util::get_gradient_from_box(
-                                        glm::make_vec3(p),
-                                        box,
-                                        p_values
-                                        );
-                                for(int k = 0; k < 8; k++) {
-                                    ImGui::Text("%f\n", p_values[k]);
-                                }
-                            }
-                            break;
-                            // leaf: from i to i + 8 retreive gravity values and interpolate
-                        } else {
-                            int k = 0;
-                            if(p[0] > current_min[0] + current_edge/2.f) k += 1;
-                            if(p[1] > current_min[1] + current_edge/2.f) k += 2;
-                            if(p[2] > current_min[2] + current_edge/2.f) k += 4;
-                            i = octree[i + k];
-                            current_edge /= 2.f;
-                            current_min = glm::value_ptr(util::get_box(glm::make_vec3(current_min), current_edge)[k]);
-                        }
-                    }
+                if(util::is_inside_box(glm::make_vec3(p), util::get_box(glm::make_vec3(min), edge))) {
+                    gravity_from_octree = gravity::get_gravity_from_octree(glm::make_vec3(p), octree, glm::make_vec3(min), edge, gravity_values, &d);
                 }
             }
 
+            // GRAVITY COMPUTATION FROM POTENTIAL OCTREE IN REAL TIME
             int potential_d = 0;
-
-            // GRAVITY COMPUTATION FROM OCTREE - REAL TIME
             if(!potential_octree.empty()) {
                 auto p = debug_ball_position;
-                if(!util::is_inside_box(glm::make_vec3(p), util::get_box(glm::make_vec3(min), edge))) {
-                    std::cout << "point is outside octree" << std::endl;
-                } else {
-                    auto current_min = min;
-                    auto current_edge = edge;
-
-                    int i = 0;
-                    for(int depth = 0;; depth++) {
-                        if(potential_octree[i] <= 0) {
-                            auto box = util::get_box(glm::make_vec3(current_min), current_edge);
-                            auto values = std::array<float, 8>{};
-                            for(int j = 0; j < 8; j++) {
-                                auto pot = reinterpret_cast<float*>(&potential_octree[i+j]);
-                                values[j] = *pot;
-                            }
-                            gravity_from_octree_potential = util::get_gradient_from_box(glm::make_vec3(p), box, values);
-                            potential_d = depth;
-                            break;
-                            // leaf: from i to i + 8 retreive gravity values and interpolate
-                        } else {
-                            int k = 0;
-                            if(p[0] > current_min[0] + current_edge/2.f) k += 1;
-                            if(p[1] > current_min[1] + current_edge/2.f) k += 2;
-                            if(p[2] > current_min[2] + current_edge/2.f) k += 4;
-                            i = potential_octree[i + k];
-                            current_edge /= 2.f;
-                            current_min = glm::value_ptr(util::get_box(glm::make_vec3(current_min), current_edge)[k]);
-                        }
-                    }
+                if(util::is_inside_box(glm::make_vec3(p), util::get_box(glm::make_vec3(min), edge))) {
+                    gravity_from_octree_potential = gravity::potential::get_gravity_from_octree(glm::make_vec3(p), potential_octree, glm::make_vec3(min), edge, &potential_d);
                 }
             }
 
-            /*
-            ImGui::Text("Current box values:");
-            for(int i = 0; i < values.size(); i++) {
-                ImGui::Text("%f %f %f", values[i].x, values[i].y, values[i].z);
-                ImGui::Text("at position: %f %f %f", box[i].x, box[i].y, box[i].z);
-                ImGui::Spacing();
-            }
-             */
-            if(!tubes.empty())
-                ImGui::Text("potential test single point: %f", gravity::potential::get_potential_with_gpu(glm::make_vec3(debug_ball_position), tubes, G, cylinder_R));
-
             // GRAVITY OUTPUTS
-            ImGui::Text("gravity: %f %f %f  length: %f", gravity.x, gravity.y, gravity.z, glm::length(gravity));
-
-            /*
-            if(ImGui::Button("compute gravity no gpu")) {
-                gravity_no_gpu = gravity::get_gravity_from_tubes_with_integral(
-                        glm::make_vec3(debug_ball_position), tubes, G, cylinder_R
-                        );
-            }
-            ImGui::Text("gravity no gpu: %f %f %f  length: %f", gravity_no_gpu.x, gravity_no_gpu.y, gravity_no_gpu.z, glm::length(gravity_no_gpu));
-            */
-             ImGui::Text(
+            ImGui::Text("gravity real time: %f %f %f  length: %f", gravity.x, gravity.y, gravity.z, glm::length(gravity));
+            ImGui::Text(
                     "gravity from octree: %f %f %f  length: %f at depth: %d",
                     gravity_from_octree.x,
                     gravity_from_octree.y,
@@ -963,7 +899,7 @@ int main(int argv, char** args) {
                     );
 
             ImGui::Text(
-                    "gravity from potential: %f %f %f  length: %f at depth: %d",
+                    "gravity from potential octree: %f %f %f  length: %f at depth: %d",
                     gravity_from_octree_potential.x,
                     gravity_from_octree_potential.y,
                     gravity_from_octree_potential.z,
