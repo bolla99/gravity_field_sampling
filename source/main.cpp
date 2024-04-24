@@ -543,6 +543,7 @@ int main(int argv, char** args) {
                     output_gravity += thread_gravity[i];
                 }
                 gravity = output_gravity;
+                //gravity = gravity::get_gravity_from_tubes_with_integral_with_gpu(transformed_point, tubes, G, cylinder_R);
                 gravity = model_rotation_z * model_rotation_y * model_rotation_x * glm::vec<4, float>{gravity, 1};
 
                 if(is_gravity_on) {
@@ -674,7 +675,7 @@ int main(int argv, char** args) {
                 std::cout << " ms" << std::endl;
             }
 
-            ImGui::SliderInt("should divide method", &should_divide_method, 0, 2);
+            ImGui::SliderInt("should divide method", &should_divide_method, 0, 3);
             if(ImGui::Button("build octree")) {
                 Timer t{};
                 octree.clear();
@@ -705,7 +706,8 @@ int main(int argv, char** args) {
                 std::cout << "max size: " << (32.f/7.f)*std::pow(8, cached_octree_depth + 1) - 32.f/7.f + 12.f*std::pow((int)std::pow(2, cached_octree_depth) + 1, 3)<< " byte" << std::endl;
                 std::cout << "true size: " << octree.size()*4 + gravity_values.size()*12 << " byte" << std::endl;
                 //std::cout << "cached values size " << cached_values.size() << std::endl;
-                //std::cout << "gravity values size " << gravity_values.size() << std::endl;
+                std::cout << "octree size " << 4*octree.size() << std::endl;
+                std::cout << "gravity values size " << 12*gravity_values.size() << std::endl;
                 //std::cout << "tmp gravity values size " << tmp_gravity_values.size() << std::endl;
                 std::cout << "tempo totale: "; t.log(); std::cout << std::endl;
 
@@ -758,7 +760,9 @@ int main(int argv, char** args) {
                 potential_octree.clear();
 
                 gravity::potential::build_octree(
+                        should_divide_method,
                         alpha,
+                        precision,
                         potential_octree,
                         0,
                         cached_octree_depth,
