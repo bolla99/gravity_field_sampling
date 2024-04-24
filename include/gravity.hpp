@@ -14,12 +14,19 @@
 #include <util.hpp>
 #include <iostream>
 
+// this namespace depends on util and gpucomputing namespaces
+// functions that depends on gpucomputing end with _with_gpu
+// almost every function depends on util functions
+// subnamespace potential is defined
 namespace gravity {
     // tube -> line segment
     struct tube {
         glm::vec3 t1, t2;
     };
 
+    // returns vector of tubes that represents {vertices, faces} mesh;
+    // resolution +1 -> number of ray per axis
+    // after execution cylinder_R contains tubes radius
     std::vector<tube> get_tubes(
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
@@ -27,7 +34,7 @@ namespace gravity {
             float* cylinder_R
             );
 
-    // methods that uses integral method
+    // returns gravity inducted by a single tube t using integral method
     inline glm::vec3 get_gravity_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
         // t1 -> p
         auto t1_p = p - t.t1;
@@ -93,19 +100,22 @@ namespace gravity {
 
         return glm::mat3{x, y, z} * glm::vec3{fx, fy, 0};
     }
+
+    // returns gravity with integral method
+    // DEPENDS on get_gravity_from_tube_with_integral
     glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
-    // gpu function
+    // return gravity with integral method implemented with gpu computing
     glm::vec3 get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
-
-    // get gravity given 3d space and gravity vector (with related min vector, range and resolution) and point
-    glm::vec3 get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution);
-
 
     // monodimensional vector for(x) {for(y) {for(z)}}}
     // resolution stands for number of segments, which means resolution + 1 gravity samples
     std::vector<glm::vec3> get_discrete_space(glm::vec3 min, float edge, int resolution);
 
+    // used by build_octree (gravity version)
+    // sd_method = 0 -> center is used
+    // sd_method = 1 -> eight values (centers of the eight inner cubes)
+    // sd_method = 2 -> both
     inline bool should_divide(
         int sd_method,
         float precision,
@@ -142,67 +152,49 @@ namespace gravity {
 
         auto locations = util::get_box(min, edge/2.f);
         auto locations_vec = std::vector<glm::vec3>{};
-        for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
 
         auto ilocations = util::get_int_box(int_min, int_edge/2);
         auto ilocations_vec = std::vector<glm::ivec3>{};
-        for(int i = 0; i < 8; i++) ilocations_vec.emplace_back(ilocations[i]);
 
-        glm::vec3 test_value;
+        glm::vec3 test_value{0.f, 0.f, 0.f};
 
         min = box_min_position;
         int_min = int_box_min_position;
 
         // add center and half edges to locations / i locations
-        if(sd_method > 0) {
+        if(sd_method == 0) {
             locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
             ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
+        } else if(sd_method == 1) {
+            for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
+            for(int i = 0; i < 8; i++) ilocations_vec.emplace_back(ilocations[i]);
+        }  else {
+            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
+            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
+            for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
+            for(int i = 0; i < 8; i++) ilocations_vec.emplace_back(ilocations[i]);
         }
 
-        if(sd_method == 2) {
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z);
-            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z);
-            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z);
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z);
-            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z);
-            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z);
-
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z + edge / 2.f);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z + int_edge / 2);
-            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z + edge / 2.f);
-            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z + edge / 2.f);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z + int_edge / 2);
-            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z + edge / 2.f);
-            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
-
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y, min.z + edge);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y, int_min.z + int_edge);
-            locations_vec.emplace_back(min.x, min.y + edge / 2.f, min.z + edge);
-            ilocations_vec.emplace_back(int_min.x, int_min.y + int_edge / 2, int_min.z + int_edge);
-            locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge, min.z + edge);
-            ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge, int_min.z + int_edge);
-            locations_vec.emplace_back(min.x + edge, min.y + edge / 2.f, min.z + edge);
-            ilocations_vec.emplace_back(int_min.x + int_edge, int_min.y + int_edge / 2, int_min.z + int_edge);
-        }
-
+        static int n = 0;
         for(int i = 0; i < locations_vec.size(); i++) {
-            if(auto j = cached_values.find(ilocations[i]); j != cached_values.end()) {
+            if(auto j = cached_values.find(ilocations_vec[i]); j != cached_values.end()) {
                 test_value = tmp_gravity_values[j->second];
             } else {
-                test_value = get_gravity_from_tubes_with_integral_with_gpu(locations[i], tubes, G, R);
+                test_value = get_gravity_from_tubes_with_integral_with_gpu(locations_vec[i], tubes, G, R);
                 if(max_depth > 1) {
-                    cached_values.emplace(ilocations[i], tmp_gravity_values.size());
+                    cached_values.emplace(ilocations_vec[i], tmp_gravity_values.size());
                     tmp_gravity_values.push_back(test_value);
                 }
             }
-            if(!util::vectors_are_p_equal(util::interpolate(locations[i], box, values), test_value, precision)) return true;
+            if(!util::vectors_are_p_equal(util::interpolate(locations_vec[i], box, values), test_value, precision)) return true;
         }
         return false;
     }
 
+    // build octree
+    // data is stored in octree and gravity_values parameters
+    // DEPENDS on should_divide
+    // sd_method specification in should_divide comment
     void build_octree(
         int sd_method,
         float precision,
@@ -225,7 +217,11 @@ namespace gravity {
     // depth stores depth at which gravity is computed (depth of box leaf that contains locaiton p)
     glm::vec3 get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, const std::vector<glm::vec3>& gravity_values, int* depth);
 
+
+    // namespace potential contains functions related to potential computation
     namespace potential {
+
+        // returns potential inducted by a single tube with integral method
         inline float get_potential_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
             auto t1_p = p - t.t1;
 
@@ -255,12 +251,22 @@ namespace gravity {
 
             return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
         }
+
+        // returns potential from tubes with integral method
+        // DEPENDS on get_potential_from_tube_with_integral
         float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
+        // return potential computed with integral method with gpu
         float get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
 
+        // build octree of potential
+        // octree is stored in octree parameter
+        // DEPENDS on potential::should_divide
+        // for sd_method specification see should_divide comment
         void build_octree(
+                int sd_method,
                 float alpha,
+                float precision,
                 std::vector<int>& octree,
                 int id,
                 int max_res,
@@ -273,24 +279,54 @@ namespace gravity {
                 float G, float R
                 );
 
-        inline bool should_divide(float alpha, std::array<float, 8> values) {
-            auto x_values = util::get_x_derivative_from_cube(values);
-            for(int i = 0; i < 4; i++) {
-                for(int j = i + 1; j < 4; j++) {
-                    if(abs(x_values[i] - x_values[j]) > alpha*abs(std::min(x_values[i], x_values[j]))) return true;
+        // should divide method for potential::build_octree
+        // sd_method == 0 -> check gravity in center
+        // sd_method == 1 -> check gravity in the centers of the eight innner cubes
+        // sd_method == 2 -> both
+        // sd_method == 3 -> ad hoc method for potential octree build
+        inline bool should_divide(int sd_method, float alpha, float precision, std::array<float, 8> values, glm::vec3 min, float edge, const std::vector<tube>& tubes, float G, float R) {
+            if(sd_method == 3) {
+                auto x_values = util::get_x_derivative_from_cube(values);
+                for (int i = 0; i < 4; i++) {
+                    for (int j = i + 1; j < 4; j++) {
+                        if (abs(x_values[i] - x_values[j]) > alpha * abs(std::min(x_values[i], x_values[j])))
+                            return true;
+                    }
                 }
-            }
-            auto y_values = util::get_y_derivative_from_cube(values);
-            for(int i = 0; i < 4; i++) {
-                for(int j = i + 1; j < 4; j++) {
-                    if(abs(y_values[i] - y_values[j]) > alpha*abs(std::min(y_values[i], y_values[j]))) return true;
+                auto y_values = util::get_y_derivative_from_cube(values);
+                for (int i = 0; i < 4; i++) {
+                    for (int j = i + 1; j < 4; j++) {
+                        if (abs(y_values[i] - y_values[j]) > alpha * abs(std::min(y_values[i], y_values[j])))
+                            return true;
+                    }
                 }
-            }
-            auto z_values = util::get_z_derivative_from_cube(values);
-            for(int i = 0; i < 4; i++) {
-                for(int j = i + 1; j < 4; j++) {
-                    if(abs(z_values[i] - z_values[j]) > alpha*abs(std::min(z_values[i], z_values[j]))) return true;
+                auto z_values = util::get_z_derivative_from_cube(values);
+                for (int i = 0; i < 4; i++) {
+                    for (int j = i + 1; j < 4; j++) {
+                        if (abs(z_values[i] - z_values[j]) > alpha * abs(std::min(z_values[i], z_values[j])))
+                            return true;
+                    }
                 }
+                return false;
+            } else if(sd_method < 3) {
+                std::vector<glm::vec3> locations{};
+                auto locations_8 = util::get_box(glm::vec3{min.x + edge/4.0, min.y + edge/4.0, min.z + edge/4.0}, edge/2.f);
+                auto center = min + edge/2.f;
+                if(sd_method == 0) {
+                    locations.push_back(center);
+                } else if(sd_method == 1) {
+                    for(int i = 0; i < 8; i++) { locations.push_back(locations_8[i]); }
+                } else if(sd_method == 2) {
+                    locations.push_back(center);
+                    for(int i = 0; i < 8; i++) { locations.push_back(locations_8[i]); }
+                }
+                for(auto location : locations) {
+                    if(!util::vectors_are_p_equal(
+                            get_gravity_from_tubes_with_integral_with_gpu(location, tubes, G, R),
+                            util::get_gradient_from_box(location, util::get_box(min, edge), values), precision)
+                            ) return true;
+                }
+                return false;
             }
             return false;
         }

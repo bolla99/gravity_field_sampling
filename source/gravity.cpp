@@ -25,6 +25,8 @@ std::vector<gravity::tube> gravity::get_tubes(
         int resolution,
         float* cylinder_R
         ) {
+    if(resolution % 2 == 0) resolution++;
+
     omp_set_num_threads(omp_get_max_threads());
     std::vector<tube> tubes = {};
 
@@ -141,7 +143,6 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const s
     return force_from_integral;
 }
 
-// depends on GPUComputing
 glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
     auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
 
@@ -163,33 +164,6 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point
         output_gravity += thread_gravity[i];
     }
     delete output;
-    return output_gravity;
-}
-
-// requires 1d collection representing regular grid of gravity sample values
-glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
-    // get indices of bounding box
-    auto indices = util::get_box_indices(space.front(), abs(space.back().x - space.front().x), resolution, point);
-
-    // translate 3d indices to 1d indices
-    std::array<int, 8> indices_1d{};
-    for(int i = 0; i < 8; i++) {
-        indices_1d[i] = util::from_3d_indices_to_1d(indices[i], resolution);
-    }
-
-    // get space coordinates of bounding box
-    std::array<glm::vec3, 8> space_cube{};
-    for(int i = 0; i < 8; i++) {
-        space_cube[i] = space[indices_1d[i]];
-    }
-
-    // obtain barycentric coordinates for interpolation
-    auto barycentric_coords = util::barycentric_coords(point, space_cube);
-    glm::vec3 output_gravity{};
-    // interpolation
-    for(int i = 0; i < 8; i++) {
-        output_gravity +=  barycentric_coords[i] * gravity[indices_1d[i]];
-    }
     return output_gravity;
 }
 
@@ -242,7 +216,7 @@ void gravity::build_octree(
         } else {
             int new_value_index = (int)gravity_values.size();
             gravity_values.push_back(get_gravity_from_tubes_with_integral_with_gpu(location[i], tubes, G, R));
-            gravity_values_map.emplace(int_location[i], tmp_gravity_values.size());
+            gravity_values_map.emplace(int_location[i], new_value_index);
             //tmp_gravity_values.push_back(gravity_values[new_value_index]);
             //cached_values.emplace(int_location[i], new_value_index);
             octree.push_back(-new_value_index);
@@ -338,7 +312,9 @@ float gravity::potential::get_potential_with_gpu(glm::vec3 point, const std::vec
 }
 
 void gravity::potential::build_octree(
+        int sd_method,
         float alpha,
+        float precision,
         std::vector<int>& octree,
         int id,
         int max_res,
@@ -369,14 +345,14 @@ void gravity::potential::build_octree(
         }
     }
 
-    if(gravity::potential::should_divide(alpha, potential_values) && max_res > 0) {
+    if(gravity::potential::should_divide(sd_method, alpha, precision, potential_values, min, edge, tubes, G, R) && max_res > 0) {
         auto mins = util::get_box(min, edge/2.f);
         auto int_mins = util::get_int_box(int_min, int_edge/2);
 
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
             build_octree(
-                        alpha, octree, octree[id + i], max_res - 1, mins[i],
+                        sd_method, alpha, precision, octree, octree[id + i], max_res - 1, mins[i],
                         edge/2.f, int_mins[i],
                         int_edge / 2, cached_values, tubes, G, R);
         }

@@ -455,6 +455,33 @@ glm::vec3 gravity::get_gravity_from_masses(const std::vector<gravity::mass>& mas
 }
 
 
+// requires 1d collection representing regular grid of gravity sample values
+glm::vec3 gravity::get_gravity_from_1D_precomputed_vector(glm::vec3 point, const std::vector<glm::vec3>& gravity, const std::vector<glm::vec3>& space, int resolution) {
+    // get indices of bounding box
+    auto indices = util::get_box_indices(space.front(), abs(space.back().x - space.front().x), resolution, point);
+
+    // translate 3d indices to 1d indices
+    std::array<int, 8> indices_1d{};
+    for(int i = 0; i < 8; i++) {
+        indices_1d[i] = util::from_3d_indices_to_1d(indices[i], resolution);
+    }
+
+    // get space coordinates of bounding box
+    std::array<glm::vec3, 8> space_cube{};
+    for(int i = 0; i < 8; i++) {
+        space_cube[i] = space[indices_1d[i]];
+    }
+
+    // obtain barycentric coordinates for interpolation
+    auto barycentric_coords = util::barycentric_coords(point, space_cube);
+    glm::vec3 output_gravity{};
+    // interpolation
+    for(int i = 0; i < 8; i++) {
+        output_gravity +=  barycentric_coords[i] * gravity[indices_1d[i]];
+    }
+    return output_gravity;
+}
+
 
 
 
