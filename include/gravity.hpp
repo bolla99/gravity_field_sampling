@@ -31,11 +31,11 @@ namespace gravity {
             const std::vector<glm::vec3>& vertices,
             const std::vector<glm::vec<3, unsigned int>>& faces,
             int resolution,
-            float* cylinder_R
+            float* R
             );
 
     // returns gravity inducted by a single tube t using integral method
-    inline glm::vec3 get_gravity_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
+    inline glm::vec3 get_gravity_from_tube_with_integral(glm::vec3 p, tube t, float G, float R) {
         // t1 -> p
         auto t1_p = p - t.t1;
 
@@ -59,7 +59,7 @@ namespace gravity {
         //};
         // punto dentro al cilindro -> da gestire
 
-        if(a < cylinder_R) return {0.0, 0.0, 0.0};
+        if(a < R) return {0.0, 0.0, 0.0};
         auto b = glm::distance(t.t1, o);
         auto c = glm::distance(t.t2, o);
 
@@ -79,17 +79,17 @@ namespace gravity {
         //    return {0.0, 0.0, 0.0};
         //};
 
-        float fy = ((G*M_PI*std::pow(cylinder_R,2)) *
+        float fy = ((G*M_PI*std::pow(R,2)) *
                     ((c / std::sqrt(std::pow(a, 2) + std::pow(c, 2))) - (b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
                     ) / a;
-        float fx = (G*M_PI*std::pow(cylinder_R,2)) *
+        float fx = (G*M_PI*std::pow(R,2)) *
                     ((1 / std::sqrt(std::pow(a, 2) + std::pow(b, 2))) - (1 / std::sqrt(std::pow(a, 2) + std::pow(c, 2))));
 
         fy = -fy; //change fy sign
 
         // p in mezzo, incrementare fy
         if(p.z > t.t1.z && p.z < t.t2.z) {
-            fy -= 2.f * ((G*M_PI*std::pow(cylinder_R,2)) *
+            fy -= 2.f * ((G*M_PI*std::pow(R,2)) *
                     ((b / std::sqrt(std::pow(a, 2) + std::pow(b, 2))))
                     ) / a;
         }
@@ -103,10 +103,10 @@ namespace gravity {
 
     // returns gravity with integral method
     // DEPENDS on get_gravity_from_tube_with_integral
-    glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+    glm::vec3 get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R);
 
     // return gravity with integral method implemented with gpu computing
-    glm::vec3 get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+    glm::vec3 get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R);
 
     // monodimensional vector for(x) {for(y) {for(z)}}}
     // resolution stands for number of segments, which means resolution + 1 gravity samples
@@ -181,10 +181,10 @@ namespace gravity {
                 test_value = tmp_gravity_values[j->second];
             } else {
                 test_value = get_gravity_from_tubes_with_integral_with_gpu(locations_vec[i], tubes, G, R);
-                if(max_depth > 1) {
+                //if(max_depth > 1) {
                     cached_values.emplace(ilocations_vec[i], tmp_gravity_values.size());
                     tmp_gravity_values.push_back(test_value);
-                }
+                //}
             }
             if(!util::vectors_are_p_equal(util::interpolate(locations_vec[i], box, values), test_value, precision)) return true;
         }
@@ -222,7 +222,7 @@ namespace gravity {
     namespace potential {
 
         // returns potential inducted by a single tube with integral method
-        inline float get_potential_from_tube_with_integral(glm::vec3 p, tube t, float G, float cylinder_R) {
+        inline float get_potential_from_tube_with_integral(glm::vec3 p, tube t, float G, float R) {
             auto t1_p = p - t.t1;
 
             int left = 1;
@@ -237,7 +237,7 @@ namespace gravity {
             // new coordinate system origin
             auto o = t.t1 + x * glm::dot(x, t1_p);
 
-            auto a = std::max(glm::distance(p, o), cylinder_R);
+            auto a = std::max(glm::distance(p, o), R);
             auto b = glm::distance(t.t1, o);
             auto c = glm::distance(t.t2, o);
 
@@ -246,18 +246,18 @@ namespace gravity {
 
             // se p + in mezzo al tubo, devo sommare integrale da b a c a 2*integrale da 0 a b
             if(p.z >= t.t1.z && p.z <= t.t2.z) {
-                return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*(integral_c + integral_b);
+                return G*(float)std::pow(R, 2)*(float)M_PI*(integral_c + integral_b);
             }
 
-            return G*(float)std::pow(cylinder_R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
+            return G*(float)std::pow(R, 2)*(float)M_PI*((float)left*integral_c - (float)left*integral_b);
         }
 
         // returns potential from tubes with integral method
         // DEPENDS on get_potential_from_tube_with_integral
-        float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+        float get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R);
 
         // return potential computed with integral method with gpu
-        float get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R);
+        float get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R);
 
         // build octree of potential
         // octree is stored in octree parameter
@@ -334,6 +334,19 @@ namespace gravity {
         // returns gravity in p from given potential octree, min and edge
         // depth stores depth at which gravity is computed (depth of box leaf that contains locaiton p)
         glm::vec3 get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, int* depth);
+
+        namespace benchmark {
+            float random_benchmark(
+                    float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
+                    const std::vector<int>& octree, glm::vec3 min, float edge);
+        }
+    }
+
+    namespace benchmark {
+        float random_benchmark(
+                float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
+                const std::vector<int>& octree, const std::vector<glm::vec3>& gravity_values,
+                glm::vec3 min, float edge);
     }
 }
 

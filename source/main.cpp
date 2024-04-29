@@ -244,6 +244,11 @@ int main(int argv, char** args) {
     // G constant
     float G = 10;
 
+    // benchmark parameters
+    int n_test = 100;
+    float box_fraction = 1;
+    float history_weight = 1;
+
     std::vector<gravity::tube> tubes{};
 
     // octree data
@@ -290,7 +295,7 @@ int main(int argv, char** args) {
 
     // octree parameters
 
-    int should_divide_method;
+    int should_divide_method = 0;
 
     // depth of grid computed by gpu
     int gpu_depth = 8;
@@ -387,7 +392,7 @@ int main(int argv, char** args) {
         glm::mat4 debug_ball_model_scale = glm::scale(glm::mat4(1.f), glm::vec3{debug_ball_scale});
         auto debug_ball_model_matrix = debug_ball_model_translation * debug_ball_model_scale;
 
-        glm::mat4 arrow_model_matrix = glm::translate(glm::mat4(1.f), glm::make_vec3(potential_point))
+        glm::mat4 arrow_model_matrix = glm::translate(glm::mat4(1.f), glm::make_vec3(debug_ball_position))
                 * glm::toMat4(util::rotation_between_vectors({0.f, 0.f, -1.f}, glm::normalize(gravity)))
                 * glm::scale(glm::mat4(1.f), {glm::length(gravity) / 100, glm::length(gravity) / 100, glm::length(gravity) / 100});
 
@@ -497,23 +502,16 @@ int main(int argv, char** args) {
 
             ImGui::SliderInt("tubes resolution (must be odd)", &gravity_resolution, 0, 1023);
             ImGui::SliderFloat("G", &G, 0, 100);
+            /*
             ImGui::SliderFloat("point x", &potential_point[0], -5, 5);
             ImGui::SliderFloat("point y", &potential_point[1], -5, 5);
             ImGui::SliderFloat("point z", &potential_point[2], -5, 5);
             ImGui::InputFloat3("point", potential_point);
+            */
 
             if(ImGui::Button("set up tubes")) {
                 tubes.erase(tubes.begin(), tubes.end());
                 tubes = gravity::get_tubes(msh.get_vertices(), msh.get_faces(), gravity_resolution, &cylinder_R);
-            }
-
-            if(ImGui::Button("compute gravity from gpu vector")) {
-                gravity_from_octree = gravity::get_gravity_from_1D_precomputed_vector(
-                    glm::make_vec3(debug_ball_position),
-                    gpu_output_gravity,
-                    discrete_space,
-                    (int)std::pow(2, cached_gpu_depth)
-                    );
             }
 
             // REAL TIME GRAVITY UPDATE WITH GPU
@@ -556,12 +554,16 @@ int main(int argv, char** args) {
             }
 
             ImGui::SliderInt("octree depth", &octree_depth, 0, 12);
-            ImGui::SliderInt("gpu depth", &gpu_depth, 0, 12);
+            //ImGui::SliderInt("gpu depth", &gpu_depth, 0, 12);
             ImGui::SliderFloat("precision", &precision, 0.f, 10.f);
             ImGui::SliderFloat("alpha", &alpha, 0.f, 2.f);
             ImGui::InputFloat3("min", min);
             ImGui::InputFloat("edge", &edge);
+            ImGui::SliderInt("numero test", &n_test, 0, 1000);
+            ImGui::SliderFloat("box fraction for benchmark", &box_fraction, 0, 1);
+            ImGui::SliderFloat("history weight for benchmark", &history_weight, 0, 1);
 
+            /*
             if(ImGui::Button("compute gpu grid")) {
                 Timer t{};
                 // cached_gpu_depth: gpu_depth for last gpu grid computed
@@ -674,7 +676,7 @@ int main(int argv, char** args) {
                 t.log();
                 std::cout << " ms" << std::endl;
             }
-
+            */
             ImGui::SliderInt("should divide method", &should_divide_method, 0, 3);
             if(ImGui::Button("build octree")) {
                 Timer t{};
@@ -686,6 +688,13 @@ int main(int argv, char** args) {
                 // cleared and filled each time octree building is called
                 gravity_values.clear();
                 gravity_values_map.clear();
+
+                // reset cached values only when change resolution
+                if(cached_octree_depth != octree_depth) {
+                    tmp_gravity_values.clear();
+                    cached_values.clear();
+                    cached_octree_depth = octree_depth;
+                }
 
                 gravity::build_octree(
                         should_divide_method,
@@ -757,6 +766,12 @@ int main(int argv, char** args) {
             if(ImGui::Button("build potential octree")) {
                 std::cout << "alpha: " << alpha << std::endl;
                 Timer t{};
+
+                if(octree_depth != cached_octree_depth) {
+                    potential_cached_values.clear();
+                    cached_octree_depth = octree_depth;
+                }
+
                 potential_octree.clear();
 
                 gravity::potential::build_octree(
@@ -778,6 +793,26 @@ int main(int argv, char** args) {
                 std::cout << "potential true size: " << potential_octree.size()*4 << " byte" << std::endl;
                 std::cout << "tempo totale: "; t.log(); std::cout << std::endl;
             }
+
+            if(!octree.empty() && ImGui::Button("gravity benchmark")) {
+                Timer t{};
+                auto e = gravity::benchmark::random_benchmark(
+                        history_weight, box_fraction, n_test, tubes, cylinder_R, G, octree, gravity_values, glm::make_vec3(min), edge
+                        );
+                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
+                std::cout << "gravity benchmark: " << e * 100 << std::endl;
+            }
+
+            if(!potential_octree.empty() && ImGui::Button("potential benchmark")) {
+                Timer t{};
+                auto e = gravity::potential::benchmark::random_benchmark(
+                        history_weight, box_fraction, n_test, tubes, cylinder_R, G, potential_octree, glm::make_vec3(min), edge
+                );
+                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
+                std::cout << "potential benchmark: " << e * 100 << std::endl;
+            }
+
+            /*
 
             // get locations from octree
             // locations are placed in the same order of sampled values vector
@@ -813,6 +848,8 @@ int main(int argv, char** args) {
                     potential_values.emplace_back(output[i]);
                 }
             }
+
+            */
 
             // WRITE FILE
             // file structure
@@ -858,7 +895,7 @@ int main(int argv, char** args) {
                     int octree_size = potential_octree.size();
                     ofs.write(reinterpret_cast<char*>(&octree_size), sizeof(int));
                     for(int i = 0; i < octree_size; i++) {
-                        ofs.write(reinterpret_cast<char*>(&octree[i]), sizeof(int));
+                        ofs.write(reinterpret_cast<char*>(&potential_octree[i]), sizeof(int));
                     }
 
                     ofs << std::endl << std::endl << std::endl;

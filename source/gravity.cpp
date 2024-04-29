@@ -8,6 +8,7 @@
 #include <iostream>
 #include <algorithm>
 #include <unordered_map>
+#include <random>
 #include <omp.h>
 #include <SDL.h>
 
@@ -23,7 +24,7 @@ std::vector<gravity::tube> gravity::get_tubes(
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces,
         int resolution,
-        float* cylinder_R
+        float* R
         ) {
     if(resolution % 2 == 0) resolution++;
 
@@ -64,7 +65,7 @@ std::vector<gravity::tube> gravity::get_tubes(
     // CUBE EDGE LENGTH
     double cube_edge = (double)max_extent / (double)resolution;
 
-    *cylinder_R = (float)std::sqrt(std::pow(cube_edge, 2) / M_PI);
+    *R = (float)std::sqrt(std::pow(cube_edge, 2) / M_PI);
 
     glm::vec3 ray_dir = {0.f, 0.f, 1.f};
 
@@ -127,7 +128,7 @@ std::vector<gravity::tube> gravity::get_tubes(
     return tubes;
 }
 
-glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<tube>& tubes, float G, float cylinder_R) {
+glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const std::vector<tube>& tubes, float G, float R) {
     omp_set_num_threads(omp_get_max_threads());
     glm::vec3 thread_gravity[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
@@ -135,16 +136,16 @@ glm::vec3 gravity::get_gravity_from_tubes_with_integral(glm::vec3 point, const s
     }
     glm::vec3 force_from_integral{};
 
-#pragma omp parallel for default(none) shared(tubes, point, G, thread_gravity, cylinder_R)
+#pragma omp parallel for default(none) shared(tubes, point, G, thread_gravity, R)
     for(auto t : tubes) {
-        thread_gravity[omp_get_thread_num()] += gravity::get_gravity_from_tube_with_integral(point, t, G, cylinder_R);
+        thread_gravity[omp_get_thread_num()] += gravity::get_gravity_from_tube_with_integral(point, t, G, R);
     }
     for(int i = 0; i < omp_get_max_threads(); i++) force_from_integral += thread_gravity[i];
     return force_from_integral;
 }
 
-glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
-    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
+glm::vec3 gravity::get_gravity_from_tubes_with_integral_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R) {
+    auto output = GPUComputing::get_gravity_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), R, G);
 
     glm::vec3 output_gravity{0.f, 0.f, 0.f};
 
@@ -217,8 +218,8 @@ void gravity::build_octree(
             int new_value_index = (int)gravity_values.size();
             gravity_values.push_back(get_gravity_from_tubes_with_integral_with_gpu(location[i], tubes, G, R));
             gravity_values_map.emplace(int_location[i], new_value_index);
-            //tmp_gravity_values.push_back(gravity_values[new_value_index]);
-            //cached_values.emplace(int_location[i], new_value_index);
+            cached_values.emplace(int_location[i], tmp_gravity_values.size());
+            tmp_gravity_values.push_back(gravity_values[new_value_index]);
             octree.push_back(-new_value_index);
         }
     }
@@ -271,7 +272,7 @@ glm::vec3 gravity::get_gravity_from_octree(glm::vec3 p, const std::vector<int>& 
     }
 }
 
-float gravity::potential::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
+float gravity::potential::get_potential_from_tubes_with_integral(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R) {
     omp_set_num_threads(omp_get_max_threads());
     float thread_potential[omp_get_max_threads()];
     for(int i = 0; i < omp_get_max_threads(); i++) {
@@ -279,16 +280,16 @@ float gravity::potential::get_potential_from_tubes_with_integral(glm::vec3 point
     }
     float potential = 0.f;
 
-#pragma omp parallel for default(none) shared(tubes, point, G, thread_potential, cylinder_R)
+#pragma omp parallel for default(none) shared(tubes, point, G, thread_potential, R)
     for(auto t : tubes) {
-        thread_potential[omp_get_thread_num()] += gravity::potential::get_potential_from_tube_with_integral(point, t, G, cylinder_R);
+        thread_potential[omp_get_thread_num()] += gravity::potential::get_potential_from_tube_with_integral(point, t, G, R);
     }
     for(int i = 0; i < omp_get_max_threads(); i++) potential += thread_potential[i];
     return potential;
 }
 
-float gravity::potential::get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float cylinder_R) {
-    auto output = GPUComputing::get_potential_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), cylinder_R, G);
+float gravity::potential::get_potential_with_gpu(glm::vec3 point, const std::vector<gravity::tube>& tubes, float G, float R) {
+    auto output = GPUComputing::get_potential_from_tubes_with_integral(glm::value_ptr(tubes.front().t1), tubes.size(), glm::value_ptr(point), R, G);
 
     float output_potential = 0.f;
 
@@ -387,4 +388,63 @@ glm::vec3 gravity::potential::get_gravity_from_octree(glm::vec3 p, const std::ve
     }
 }
 
+float gravity::potential::benchmark::random_benchmark(
+        float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
+        const std::vector<int>& octree, glm::vec3 min, float edge) {
 
+    auto inner_edge = edge * box_fraction;
+    glm::vec3 inner_min{
+            min.x + (edge - inner_edge)/2.f,
+            min.y + (edge - inner_edge)/2.f,
+            min.z + (edge - inner_edge)/2.f
+    };
+
+    std::random_device rd;
+    std::mt19937 mte(rd());
+    std::uniform_real_distribution<float> dist_x(min.x, inner_min.x + inner_edge);
+    std::uniform_real_distribution<float> dist_y(min.y, inner_min.y + inner_edge);
+    std::uniform_real_distribution<float> dist_z(min.z, inner_min.z + inner_edge);
+
+    float error;
+    for(int i = 0; i < n_test; i++) {
+        glm::vec3 p{dist_x(mte), dist_y(mte), dist_z(mte)};
+        int d = 0;
+        auto octree_gravity = potential::get_gravity_from_octree(p, octree, min, edge, &d);
+        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(p, tubes, G, R);
+        //auto mean_module = glm::length(octree_gravity)/2.f + glm::length(real_gravity) / 2.f;
+        error = error*float(i)*history_weight + glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
+        error /= (float)i*history_weight + 1.f;
+    }
+    return error;
+}
+
+float gravity::benchmark::random_benchmark(
+        float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes,
+        float R, float G, const std::vector<int>& octree,
+        const std::vector<glm::vec3>& gravity_values, glm::vec3 min, float edge) {
+
+    auto inner_edge = edge * box_fraction;
+    glm::vec3 inner_min{
+            min.x + (edge - inner_edge)/2.f,
+            min.y + (edge - inner_edge)/2.f,
+            min.z + (edge - inner_edge)/2.f
+    };
+
+    std::random_device rd;
+    std::mt19937 mte(rd());
+    std::uniform_real_distribution<float> dist_x(min.x, inner_min.x + inner_edge);
+    std::uniform_real_distribution<float> dist_y(min.y, inner_min.y + inner_edge);
+    std::uniform_real_distribution<float> dist_z(min.z, inner_min.z + inner_edge);
+
+    float error;
+    for(int i = 0; i < n_test; i++) {
+        glm::vec3 p{dist_x(mte), dist_y(mte), dist_z(mte)};
+        int d = 0;
+        auto octree_gravity = get_gravity_from_octree(p, octree, min, edge, gravity_values, &d);
+        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(p, tubes, G, R);
+        //auto mean_module = glm::length(octree_gravity)/2.f + glm::length(real_gravity) / 2.f;
+        error = error*float(i)*history_weight + glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
+        error /= (float)i*history_weight + 1.f;
+    }
+    return error;
+}
