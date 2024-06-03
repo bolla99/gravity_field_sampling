@@ -74,7 +74,7 @@ std::vector<gravity::tube> gravity::get_tubes(
         min.y + (float)resolution * (float)cube_edge,
         min.z + (float)resolution * (float)cube_edge
     };
-    std::cout << "get tube; max reale: " << real_max.x << " " << real_max.y << " " << real_max.z << std::endl;
+    //std::cout << "get tube; max reale: " << real_max.x << " " << real_max.y << " " << real_max.z << std::endl;
     //std::cout << "SCARTO ERRORE TRA MAX REALE E MAX CALCOLATO: " << (max.x) - (min.x + (float)((double)(resolution - 25) * cube_edge)) << std::endl;
 
     int t_left = 0;

@@ -205,7 +205,6 @@ namespace util {
         // avoid comparison with 0
         /*if(glm::length(v1) < 1) {
             if(glm::length(v2) < 1) return true;
-            std::cout << "CANE";
             v3 = v2;
         } else if(glm::length(v2) < 1) {
             v3 = v1;

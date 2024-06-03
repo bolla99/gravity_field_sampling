@@ -220,7 +220,6 @@ std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<
         auto new_last = std::unique(parameters.begin(), parameters.end(),
                                     [&ray_dir, &vertices, &faces](auto p1, auto p2) {
                                         if(std::fabs(std::get<0>(p1) - std::get<0>(p2)) < 0.0001) {
-                                            std::cout << "cane peloso" << std::endl;
                                             auto i = std::get<1>(p1);
                                             auto j = std::get<1>(p2);
                                             glm::vec3 t0 = vertices[faces[i].x - 1];
@@ -372,16 +371,16 @@ std::vector<glm::vec3> util::outside_mesh_locations(
         glm::vec3 min, float edge
 ) {
     auto mesh_min = util::get_min(vertices);
-    std::cout << mesh_min.x << " " << mesh_min.y << " " << mesh_min.z << std::endl;
+    //std::cout << mesh_min.x << " " << mesh_min.y << " " << mesh_min.z << std::endl;
     auto mesh_max = util::get_max(vertices);
-    std::cout << mesh_max.x << " " << mesh_max.y << " " << mesh_max.z << std::endl;
+    //std::cout << mesh_max.x << " " << mesh_max.y << " " << mesh_max.z << std::endl;
 
     auto min_dist = std::min(mesh_min.x - min.x, mesh_min.y - min.y);
     min_dist = std::min(min_dist, mesh_min.z - min.z);
     min_dist = std::min(min_dist, min.x + edge - mesh_max.z);
     min_dist = std::min(min_dist, min.y + edge - mesh_max.y);
     min_dist = std::min(min_dist, min.z + edge - mesh_max.z);
-    std::cout << min_dist << std::endl;
+    //std::cout << min_dist << std::endl;
 
     auto locations = std::vector<glm::vec3>{};
     for(auto face : faces) {
@@ -391,10 +390,10 @@ std::vector<glm::vec3> util::outside_mesh_locations(
         int n = 10;
         for(int i = 1; i <= n; i++) {
             if(!util::is_inside_box(centroid + float(i) * (min_dist / float(n)) * norm, util::get_box(min, edge))) {
-                std::cout << "problema" << std::endl;
+                //std::cout << "problema" << std::endl;
                 auto p = centroid + (float(i) * (min_dist / float(n))) * norm;
-                std::cout << "centroid " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
-                std::cout << "transformed centroid: " << p.x << " " << p.y << " " << p.z << std::endl;
+                //std::cout << "centroid " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+                //std::cout << "transformed centroid: " << p.x << " " << p.y << " " << p.z << std::endl;
             }
             locations.push_back(centroid + (float(i) * min_dist / float(n)) * norm);
             locations.push_back(vertices[face.x - 1] + (float(i) * min_dist / float(n)) * norm);

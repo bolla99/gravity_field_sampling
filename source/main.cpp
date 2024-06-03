@@ -233,11 +233,6 @@ int main(int argv, char** args) {
     float real_time_performance = 0;
     float real_time_performance_octree = 0;
 
-    // performance data
-    int n_gravity = 1;
-    int n_potential = 1;
-    int space_test_resolution = 1;
-
     std::vector<gravity::tube> tubes{};
 
     // octree data
@@ -539,7 +534,7 @@ int main(int argv, char** args) {
 #pragma omp parallel for default(none) shared(output, thread_gravity, tubes, std::cout)
                     for (int i = 0; i < tubes.size(); i++) {
                         auto o = glm::vec3(output[3 * i], output[3 * i + 1], output[3 * i + 2]);
-                        if (glm::length(o) > 1000) std::cout << "    " << i << "   ";
+                        //if (glm::length(o) > 1000) std::cout << "    " << i << "   ";
                         thread_gravity[omp_get_thread_num()] += glm::vec3(output[3 * i], output[3 * i + 1],
                                                                           output[3 * i + 2]);
                     }
@@ -568,16 +563,13 @@ int main(int argv, char** args) {
             ImGui::InputInt("octree depth", &octree_depth);
             ImGui::InputInt("octree min depth", &min_depth, 0, 10);
             ImGui::InputFloat("accuracy [%]", &precision);
-            //ImGui::SliderFloat("alpha", &alpha, 0.f, 10.f);
+            //[deprecated]ImGui::SliderFloat("alpha", &alpha, 0.f, 10.f);
             ImGui::InputFloat3("min", min);
             ImGui::InputFloat("edge", &edge);
             ImGui::Text("BENCHMARK PARAMETERS");
             ImGui::InputInt("#tests for random benchmark", &n_test);
-            ImGui::InputInt("grav. comp. per frame", &n_gravity);
-            ImGui::InputInt("pot. comp. per frame", &n_potential);
-            //ImGui::SliderInt("space test resolution", &space_test_resolution, 0, 1000);
-            ImGui::InputInt("direct comp. per cycle", &n_real_time);
-            ImGui::InputInt("octree comp. per cycle", &n_real_time_octree);
+            ImGui::InputInt("direct comp. per frame", &n_real_time);
+            ImGui::InputInt("octree comp. per frame", &n_real_time_octree);
 
             /*
             if(ImGui::Button("compute gpu grid")) {
@@ -784,7 +776,7 @@ int main(int argv, char** args) {
             }
 
             if(ImGui::Button("build potential octree")) {
-                std::cout << "alpha: " << alpha << std::endl;
+                //std::cout << "alpha: " << alpha << std::endl;
                 Timer t{};
 
                 if(octree_depth != cached_octree_depth) {
@@ -1164,8 +1156,6 @@ int main(int argv, char** args) {
                     ofs << "octree depth: " << cached_octree_depth;
                 }
             }
-
-            auto space_test = gravity::get_discrete_space(glm::make_vec3(min), edge, space_test_resolution);
 
             // GRAVITY COMPUTATION FROM OCTREE IN REAL TIME
             Timer t{};

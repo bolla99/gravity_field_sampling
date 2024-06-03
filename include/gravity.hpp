@@ -138,7 +138,6 @@ namespace gravity {
         const std::vector<glm::vec3>& vertices,
         const std::vector<glm::vec<3, unsigned int>>& faces
         ) {
-        std::cout << "depth: " << max_depth - depth << std::endl;
         if((max_depth - depth) < min_depth) return true;
 
         // box that is being tested (if it should be divided in eight boxes)
@@ -169,7 +168,6 @@ namespace gravity {
         // add center and half edges to locations / i locations
         if(sd_method == 0) {
             locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
-            std::cout << locations_vec[0].x << " " << locations_vec[0].y << " " << locations_vec[0].z << std::endl;
             ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
         } else if(sd_method == 1) {
             for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
