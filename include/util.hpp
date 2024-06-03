@@ -37,6 +37,7 @@ namespace util {
 
     // returns true if ray {ray_origin, ray_dir} intersects the triangle {t1, t2, t3}
     // if yes the distance between ray_origin and the intersection is stored in parameter
+    // möller-trumbore + cramer's rule
     bool ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, glm::vec3 t1, glm::vec3 t2, glm::vec3 t3, float* parameter);
 
     // returns a vector of intersections between the ray {ray_origin, ray_dir} and multiple triangles
@@ -145,8 +146,9 @@ namespace util {
     // the four edge of a given axis and then the axis component of gradient is retrieved
     // from these four derivative
     // DEPENDS on get_x_derivative_from_cube, get_y.., get_z..
-    inline glm::vec3 get_gradient_from_box(const glm::vec3& p, const std::array<glm::vec3, 8>& locations, const std::array<float, 8>& values) {
-        auto edge = glm::distance(locations[0], locations[1]);
+    inline glm::vec3 get_gradient_from_box(const glm::vec3& p, const std::array<glm::vec3, 8>& locations, const std::array<float, 8>& values, float edge) {
+        //auto edge = glm::distance(locations[0], locations[1]);
+
         auto gradient = glm::vec3{0.f, 0.f, 0.f};
         // x axis; interpolazione fatta sui valori y e z
         // 1 - 0;  3 - 2; 5 - 4; 7 - 6
@@ -159,7 +161,10 @@ namespace util {
                 (edge - first_c) * second_c,
                 first_c * second_c
         };
-        for(int i = 0; i < 4; i++) { gradient.x -= x_values[i] * weights[i] / std::pow(edge, 3); }
+
+        for(int i = 0; i < 4; i++) {
+            gradient.x -= float(double(x_values[i]) * (double(weights[i]) / std::pow(edge, 3)));
+        }
 
         // y axis x e z
         // 2 - 0; 3 - 1; 6 - 4; 7 - 5
@@ -172,7 +177,10 @@ namespace util {
                 (edge - first_c) * second_c,
                 first_c * second_c
         };
-        for(int i = 0; i < 4; i++) { gradient.y -= y_values[i] * weights[i] / std::pow(edge, 3); }
+
+        for(int i = 0; i < 4; i++) {
+            gradient.y -= float(double(y_values[i]) * (double(weights[i]) / std::pow(edge, 3)));
+        }
         // z axis
         // 4 - 0; 5 - 1; 6 - 2; 7 - 3
         std::array<float, 4> z_values = {values[4] - values[0], values[5] - values[1], values[6] - values[2], values[7] - values[3]};
@@ -184,13 +192,26 @@ namespace util {
                 (edge - first_c) * second_c,
                 first_c * second_c
         };
-        for(int i = 0; i < 4; i++) { gradient.z -= z_values[i] * weights[i] / std::pow(edge, 3); }
+
+        for(int i = 0; i < 4; i++) {
+            gradient.z -= float(double(z_values[i]) * (double(weights[i]) / std::pow(edge, 3)));;
+        }
         return gradient;
     }
 
     // RETURNS true if (v1 - v2) vector length is less then precision
     inline bool vectors_are_p_equal(const glm::vec3& v1, const glm::vec3& v2, float precision) {
-        return glm::length2(v1 - v2) < precision;
+        auto v3 = v1;
+        // avoid comparison with 0
+        /*if(glm::length(v1) < 1) {
+            if(glm::length(v2) < 1) return true;
+            std::cout << "CANE";
+            v3 = v2;
+        } else if(glm::length(v2) < 1) {
+            v3 = v1;
+        }*/
+        auto p = glm::length2(v1 - v2)/glm::length2(v3)*100;
+        return p < precision;
     }
 
     // RETURNS edge derivatives for x axis given values
@@ -239,6 +260,23 @@ namespace util {
             const std::vector<glm::vec<3, unsigned int>>& faces,
             const glm::vec3& t);
 
+    inline glm::vec3 norm(const std::vector<glm::vec3>& vertices, glm::vec<3, int> face) {
+        auto e1 = vertices[face.y] - vertices[face.x];
+        auto e2 = vertices[face.z] - vertices[face.x];
+        return glm::normalize(glm::cross(e1, e2));
+    }
+
+    std::vector<glm::vec3> random_locations(glm::vec3 min, float edge, int n);
+
+    std::vector<glm::vec3> near_mesh_locations(
+            const std::vector<glm::vec3>& vertices,
+            const std::vector<glm::vec<3, unsigned int>>& faces
+            );
+    std::vector<glm::vec3> outside_mesh_locations(
+            const std::vector<glm::vec3>& vertices,
+            const std::vector<glm::vec<3, unsigned int>>& faces,
+            glm::vec3 min, float edge
+            );
 };
 
 #endif //GL_TEST_PROJECT_UTIL_HPP

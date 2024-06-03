@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <random>
 
 glm::quat util::rotation_between_vectors(const glm::vec3& start, const glm::vec3& dest) {
     // normalize vectors
@@ -115,23 +116,29 @@ bool util::ray_triangle_intersection(glm::vec3 ray_origin, glm::vec3 ray_dir, gl
     glm::mat3 m = glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z,
                             e1.x, e1.y, e1.z,
                             e2.x, e2.y, e2.z);
-    glm::vec3 o = glm::vec3(ray_origin.x - t1.x, ray_origin.y - t1.y, ray_origin.z - t1.z);
+    //glm::vec3 o = glm::vec3(ray_origin.x - t1.x, ray_origin.y - t1.y, ray_origin.z - t1.z);
 
     float d = glm::determinant(m);
+    // ray parallel to the triangle
+    if(d > -std::numeric_limits<float>::epsilon() && d < std::numeric_limits<float>::epsilon()) return false;
+
+    auto o = ray_origin - t1;
 
     float u = glm::determinant(glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z, o.x, o.y, o.z, e2.x, e2.y, e2.z)) / d;
     if(u < 0.0 || u > 1.0) return false;
     float v = glm::determinant(glm::mat3(-ray_dir.x, -ray_dir.y, -ray_dir.z, e1.x, e1.y, e1.z, o.x, o.y, o.z)) / d;
-    if(v < 0.0 || v > 1.0 || u + v > 1.0) return false;
+    if(v < 0.0 || u + v > 1.0) return false;
     float t = glm::determinant(glm::mat3(o.x, o.y, o.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z)) / d;
-    if(t < std::numeric_limits<float>::epsilon()) return false;
+    if(t <= std::numeric_limits<float>::epsilon()) return false;
 
+    /*
     glm::vec3 tNorm = glm::cross(e1, e2);
     float raydotnorm = glm::dot(ray_dir, tNorm);
 
     if (raydotnorm > -std::numeric_limits<float>::epsilon() && raydotnorm < std::numeric_limits<float>::epsilon()) {
         return false;    // This ray is parallel to this triangle.
     }
+    */
 
     *parameter = t;
     return true;
@@ -170,12 +177,13 @@ std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<
 ) {
     // parameter: intersection = origin + direction * parameter
     std::vector<glm::vec3> intersections = {};
-    std::vector<float> parameters = {};
+    std::vector<std::pair<float, int>> parameters = {};
+
     float parameter;
-    for(auto & face : faces) {
-        glm::vec3 t0 = vertices[face.x - 1];
-        glm::vec3 t1 = vertices[face.y - 1];
-        glm::vec3 t2 = vertices[face.z - 1];
+    for(int i = 0; i < faces.size(); i++) {
+        glm::vec3 t0 = vertices[faces[i].x - 1];
+        glm::vec3 t1 = vertices[faces[i].y - 1];
+        glm::vec3 t2 = vertices[faces[i].z - 1];
         glm::vec3 o = ray_origin;
         // CUSTOM RAY MESH INTERSECTION: since ray is parallel to z axis, its possible
         // to do a prececk and exclude triangles that are out of ray vision;
@@ -189,7 +197,7 @@ std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<
         if(t0.y > t0.x + Do && t1.y > t1.x + Do && t2.y > t2.x + Do) continue;
 
         if(util::ray_triangle_intersection(ray_origin, ray_dir, t0, t1, t2, &parameter)) {
-            parameters.push_back(parameter);
+            parameters.emplace_back(parameter, i);
         }
     }
     if(parameters.empty()) return intersections;
@@ -197,20 +205,46 @@ std::vector<glm::vec3> util::ray_mesh_intersections_optimized(const std::vector<
     // sort to return intersection in order of distance from ray origin
     std::sort(parameters.begin(), parameters.end());
 
-    // discard unique values in order to avoid double intersection through edges
-    auto new_last = std::unique(parameters.begin(), parameters.end(),
-                                [](float f1, float f2) {
-                                    //return std::fabs(f1 - f2) < std::numeric_limits<float>::epsilon();
-                                        return std::fabs(f1 - f2) < 0.0001;
-                                });
-    parameters.resize(std::distance(parameters.begin(), new_last));
+    if(parameters.size() % 2 == 1) {
+        /*
+        for(int i = 0; i < parameters.size(); i++) { std::cout << std::get<0>(parameters[i]) << " ";}
+        std::cout << std::endl;
+        for(int i = 0; i < parameters.size(); i++) {
+            std::cout << ray_origin.x << " ";
+            std::cout << ray_origin.y << " ";
+            std::cout << ray_origin.z + std::get<0>(parameters[i]) << " ";
+            std::cout << std::endl;
+        }
+        */
+        // discard unique values in order to avoid double intersection through edges
+        auto new_last = std::unique(parameters.begin(), parameters.end(),
+                                    [&ray_dir, &vertices, &faces](auto p1, auto p2) {
+                                        if(std::fabs(std::get<0>(p1) - std::get<0>(p2)) < 0.0001) {
+                                            std::cout << "cane peloso" << std::endl;
+                                            auto i = std::get<1>(p1);
+                                            auto j = std::get<1>(p2);
+                                            glm::vec3 t0 = vertices[faces[i].x - 1];
+                                            glm::vec3 t1 = vertices[faces[i].y - 1];
+                                            glm::vec3 t2 = vertices[faces[i].z - 1];
+                                            glm::vec3 s0 = vertices[faces[j].x - 1];
+                                            glm::vec3 s1 = vertices[faces[j].y - 1];
+                                            glm::vec3 s2 = vertices[faces[j].z - 1];
+                                            auto tnorm = glm::normalize(glm::cross(t1 - t0, t2 - t0));
+                                            auto snorm = glm::normalize(glm::cross(s1 - s0, s2 - s0));
+                                            return glm::dot(tnorm, ray_dir) * glm::dot(snorm, ray_dir) > 0;
+                                        }
+                                        return false;
+                                    });
+        parameters.resize(std::distance(parameters.begin(), new_last));
+        std::sort(parameters.begin(), parameters.end());
+    }
 
     // exclude single intersection (which means ray is tangent to the mesh)
     if(parameters.size() == 1) parameters.clear();
 
     intersections.clear();
-    for(float p : parameters) {
-        intersections.push_back(ray_origin + ray_dir * p);
+    for(auto p : parameters) {
+        intersections.push_back(ray_origin + ray_dir * std::get<0>(p));
     }
 
     return intersections;
@@ -295,4 +329,78 @@ float util::volume(
         volume += util::tetrahedron_volume(vertices[face.x - 1], vertices[face.y - 1], vertices[face.z - 1], t) * 10;
     }
     return volume;
+}
+
+std::vector<glm::vec3> util::random_locations(glm::vec3 min, float edge, int n) {
+    std::random_device rd;
+    std::mt19937 mte(rd());
+    std::uniform_real_distribution<float> dist_x(min.x, min.x + edge);
+    std::uniform_real_distribution<float> dist_y(min.y, min.y + edge);
+    std::uniform_real_distribution<float> dist_z(min.z, min.z + edge);
+
+    std::vector<glm::vec3> locations{};
+    locations.reserve(n);
+    for(int i = 0; i < n; i++) {
+        locations.emplace_back(dist_x(mte), dist_y(mte), dist_z(mte));
+    }
+    return locations;
+}
+
+std::vector<glm::vec3> util::near_mesh_locations(
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
+) {
+    auto locations = std::vector<glm::vec3>{};
+    for(auto face : faces) {
+        auto norm = util::norm(vertices, face);
+        auto centroid = (vertices[face.x - 1] + vertices[face.y - 1] + vertices[face.z - 1])/3.f;
+        locations.push_back(centroid);
+        locations.push_back(centroid + 0.1f * norm);
+        locations.push_back(vertices[face.x - 1]);
+        locations.push_back(vertices[face.x - 1] + 0.1f * norm);
+        locations.push_back(vertices[face.y - 1]);
+        locations.push_back(vertices[face.y - 1] + 0.1f * norm);
+        locations.push_back(vertices[face.z - 1]);
+        locations.push_back(vertices[face.z - 1] + 0.1f * norm);
+    }
+    return locations;
+}
+
+std::vector<glm::vec3> util::outside_mesh_locations(
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces,
+        glm::vec3 min, float edge
+) {
+    auto mesh_min = util::get_min(vertices);
+    std::cout << mesh_min.x << " " << mesh_min.y << " " << mesh_min.z << std::endl;
+    auto mesh_max = util::get_max(vertices);
+    std::cout << mesh_max.x << " " << mesh_max.y << " " << mesh_max.z << std::endl;
+
+    auto min_dist = std::min(mesh_min.x - min.x, mesh_min.y - min.y);
+    min_dist = std::min(min_dist, mesh_min.z - min.z);
+    min_dist = std::min(min_dist, min.x + edge - mesh_max.z);
+    min_dist = std::min(min_dist, min.y + edge - mesh_max.y);
+    min_dist = std::min(min_dist, min.z + edge - mesh_max.z);
+    std::cout << min_dist << std::endl;
+
+    auto locations = std::vector<glm::vec3>{};
+    for(auto face : faces) {
+        auto norm = util::norm(vertices, face);
+        auto centroid = (vertices[face.x - 1] + vertices[face.y - 1] + vertices[face.z - 1])/3.f;
+        //std::cout << "centroid " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+        int n = 10;
+        for(int i = 1; i <= n; i++) {
+            if(!util::is_inside_box(centroid + float(i) * (min_dist / float(n)) * norm, util::get_box(min, edge))) {
+                std::cout << "problema" << std::endl;
+                auto p = centroid + (float(i) * (min_dist / float(n))) * norm;
+                std::cout << "centroid " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+                std::cout << "transformed centroid: " << p.x << " " << p.y << " " << p.z << std::endl;
+            }
+            locations.push_back(centroid + (float(i) * min_dist / float(n)) * norm);
+            locations.push_back(vertices[face.x - 1] + (float(i) * min_dist / float(n)) * norm);
+            locations.push_back(vertices[face.y - 1] + (float(i) * min_dist / float(n)) * norm);
+            locations.push_back(vertices[face.z - 1] + (float(i) * min_dist / float(n)) * norm);
+        }
+    }
+    return locations;
 }
