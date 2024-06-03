@@ -12,7 +12,6 @@ include_directories("${PROJECT_SOURCE_DIR}/include/")
 if(APPLE)
 link_directories("/opt/homebrew/opt/libomp/lib")
 include_directories("/opt/homebrew/opt/libomp/include")
-include_directories($INCLUDE_INSTALL_DIR)
 endif()
 
 add_executable(gl_test_project
@@ -43,6 +42,7 @@ endif()
 
 if(WIN32)
 	message("so: windows ")
+
 	list(APPEND CMAKE_PREFIX_PATH "C:/Users/bolla/Downloads/SDL2-devel-2.26.5-VC/SDL2-2.26.5/cmake/")
 	list(APPEND CMAKE_PREFIX_PATH "C:/Users/bolla/Downloads/glew-2.1.0-win32/glew-2.1.0/lib/Release/x64/")
 	list(APPEND CMAKE_PREFIX_PATH "C:/Users/bolla/Downloads/glew-2.1.0-win32/glew-2.1.0/include/")
@@ -77,9 +77,6 @@ add_subdirectory(imgui)
 ########################################################## GLM
 add_subdirectory(glm)
 
-########################################################## BULLET
-add_subdirectory(bullet3)
-
 ######################################################## OPENMP
 if(APPLE)
 	message("setting openmp on macos")
@@ -113,12 +110,6 @@ target_link_libraries(gl_test_project PRIVATE
 		imgui
 		glm
 		OpenMP::OpenMP_CXX
-		LinearMath
-		Bullet3Common
-		BulletInverseDynamics
-		BulletCollision
-		BulletDynamics
-		BulletSoftBody
 		)
 
 if(WIN32)
@@ -128,24 +119,13 @@ endif()
 if(APPLE)
 	message("add metal")
 	add_compile_definitions(METAL_READY)
-	find_library(METAL Metal)
-	find_library(FOUNDATION Foundation)
-	find_library(QUARTZCORE QuartzCore)
-	find_library(METALKIT MetalKit)
-	find_library(APPKIT Appkit)
-	#target_link_libraries(gl_test_project PRIVATE
-	#	"-framework Metal"
-	#	"-framework Foundation"
-	#	"-framework QuartzCore"
-	#	"-framework MetalKit"
-	#	"-framework AppKit"
 	target_link_libraries(gl_test_project PRIVATE
-			${METAL}
-			${FOUNDATION}
-			${QUARTZCORE}
-			${METALKIT}
-			${APPKIT}
-		)
+		"-framework Metal"
+		"-framework Foundation"
+		"-framework QuartzCore"
+		"-framework MetalKit"
+		"-framework AppKit"
+	)
 endif()
 
 target_include_directories(gl_test_project PRIVATE ./imgui/)
