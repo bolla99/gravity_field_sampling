@@ -43,6 +43,7 @@
 // HELPER STRUCTS
 using Face = glm::vec<3, unsigned int>;
 using UV = glm::vec2;
+
 struct Color {
     float r, g, b;
 };
