@@ -94,15 +94,16 @@ std::vector<gravity::tube> gravity::get_tubes(
             // FIND INTERSECTIONS
             std::vector<glm::vec3> intersections = util::ray_mesh_intersections_optimized(vertices, faces, ray_origin, ray_dir);
 
+            if(intersections.size() % 2 == 1) {
+                //continue;
+            }
+
             // FOR EACH INTERSECTIONS COUPLE
-            for(int k = 0; k < intersections.size(); k += 2) {
-                /*
-                if(glm::distance(intersections[k], intersections[k + 1]) > 10) {
-                    std::cout << "impossible tube second check" << std::endl;
-                }
-                */
+            for(int k = 0; k + 1 < intersections.size(); k += 2) {
+                auto zzz = glm::normalize(intersections[k+1] - intersections[k]);
 #pragma omp critical
                 tubes.push_back({intersections[k], intersections[k + 1]});
+                /*
                 if(i < (resolution + 1) / 2) t_left++; else t_right++;
                 if(j < (resolution + 1) / 2) {
                     t_down++;
@@ -111,6 +112,7 @@ std::vector<gravity::tube> gravity::get_tubes(
                     t_up++;
                     d_up += glm::distance(intersections[k], intersections[k + 1]);
                 }
+                */
             }
         }
     }
@@ -189,7 +191,9 @@ void gravity::build_octree(
         float precision,
         std::vector<int>& octree,
         int id,
-        int max_res,
+        int depth,
+        int max_depth,
+        int min_depth,
         glm::vec3 min,
         float edge,
         glm::vec<3, int> int_min,
@@ -199,7 +203,9 @@ void gravity::build_octree(
         std::unordered_map<glm::vec<3, int>, int>& cached_values,
         std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
-        float G, float R
+        float G, float R,
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
         ) {
 
     // first eight values -> first eight values
@@ -224,7 +230,7 @@ void gravity::build_octree(
         }
     }
 
-    if(max_res > 0 && should_divide(sd_method, precision, id, octree, max_res,min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R)) {
+    if(depth > 0 && should_divide(sd_method, precision, id, octree, depth, max_depth, min_depth, min, edge, int_min, int_edge, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R, vertices, faces)) {
         // inspecting node became internal node -> it gets children, and first_child_id must be updated with first
         // child id; the children are all adjacent; then delete gravity_octant, since it is no longer needed
 
@@ -234,9 +240,9 @@ void gravity::build_octree(
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
             build_octree(
-                    sd_method, precision, octree, octree[id + i], max_res - 1, mins[i],
+                    sd_method, precision, octree, octree[id + i], depth - 1, max_depth, min_depth, mins[i],
                     edge/2.f, int_mins[i],
-                    int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R
+                    int_edge / 2, gravity_values, tmp_gravity_values, cached_values, gravity_values_map, tubes, G, R, vertices, faces
                     );
         }
     }
@@ -318,6 +324,7 @@ void gravity::potential::build_octree(
         float precision,
         std::vector<int>& octree,
         int id,
+        int res,
         int max_res,
         glm::vec3 min,
         float edge,
@@ -325,8 +332,17 @@ void gravity::potential::build_octree(
         int int_edge,
         std::unordered_map<glm::ivec3, float>& cached_values,
         const std::vector<tube>& tubes,
-        float G, float R
+        float G, float R,
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
 ) {
+    /*
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << "build octree call" << std::endl;
+    std::cout << "res: " << max_res << std::endl;
+    std::cout << "min: " << min.x << " " << min.y << " " << min.z << std::endl;
+    */
+
     auto locations = util::get_box(min ,edge);
     auto int_locations = util::get_int_box(int_min, int_edge);
     std::array<float, 8> potential_values{};
@@ -346,16 +362,16 @@ void gravity::potential::build_octree(
         }
     }
 
-    if(gravity::potential::should_divide(sd_method, alpha, precision, potential_values, min, edge, tubes, G, R) && max_res > 0) {
+    if(gravity::potential::should_divide(sd_method, alpha, precision, potential_values, min, edge, tubes, G, R, vertices, faces) && res > 0) {
         auto mins = util::get_box(min, edge/2.f);
         auto int_mins = util::get_int_box(int_min, int_edge/2);
 
         for(int i = 0; i < 8; i++) {
             octree[id + i] = (int)octree.size();
             build_octree(
-                        sd_method, alpha, precision, octree, octree[id + i], max_res - 1, mins[i],
+                        sd_method, alpha, precision, octree, octree[id + i], res - 1, max_res, mins[i],
                         edge/2.f, int_mins[i],
-                        int_edge / 2, cached_values, tubes, G, R);
+                        int_edge / 2, cached_values, tubes, G, R, vertices, faces);
         }
     }
 }
@@ -375,7 +391,7 @@ glm::vec3 gravity::potential::get_gravity_from_octree(glm::vec3 p, const std::ve
                 values[j] = *pot;
             }
             *depth = d;
-            return util::get_gradient_from_box(glm::make_vec3(p), box, values);
+            return util::get_gradient_from_box(glm::make_vec3(p), box, values, current_edge);
         } else {
             int k = 0;
             if(p[0] > current_min[0] + current_edge/2.f) k += 1;
@@ -388,63 +404,35 @@ glm::vec3 gravity::potential::get_gravity_from_octree(glm::vec3 p, const std::ve
     }
 }
 
-float gravity::potential::benchmark::random_benchmark(
-        float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
+float gravity::potential::benchmark(
+        const std::vector<glm::vec3>& locations, const std::vector<tube>& tubes, float R, float G,
         const std::vector<int>& octree, glm::vec3 min, float edge) {
-
-    auto inner_edge = edge * box_fraction;
-    glm::vec3 inner_min{
-            min.x + (edge - inner_edge)/2.f,
-            min.y + (edge - inner_edge)/2.f,
-            min.z + (edge - inner_edge)/2.f
-    };
-
-    std::random_device rd;
-    std::mt19937 mte(rd());
-    std::uniform_real_distribution<float> dist_x(min.x, inner_min.x + inner_edge);
-    std::uniform_real_distribution<float> dist_y(min.y, inner_min.y + inner_edge);
-    std::uniform_real_distribution<float> dist_z(min.z, inner_min.z + inner_edge);
-
-    float error;
-    for(int i = 0; i < n_test; i++) {
-        glm::vec3 p{dist_x(mte), dist_y(mte), dist_z(mte)};
+    float tot_error = 0;
+    for(auto location : locations) {
         int d = 0;
-        auto octree_gravity = potential::get_gravity_from_octree(p, octree, min, edge, &d);
-        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(p, tubes, G, R);
+        auto octree_gravity = potential::get_gravity_from_octree(location, octree, min, edge, &d);
+        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(location, tubes, G, R);
         //auto mean_module = glm::length(octree_gravity)/2.f + glm::length(real_gravity) / 2.f;
-        error = error*float(i)*history_weight + glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
-        error /= (float)i*history_weight + 1.f;
+        auto error = glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
+        if(isnan(error)) continue;
+        tot_error += error;
     }
-    return error;
+    return tot_error/float(locations.size());
 }
 
-float gravity::benchmark::random_benchmark(
-        float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes,
-        float R, float G, const std::vector<int>& octree,
-        const std::vector<glm::vec3>& gravity_values, glm::vec3 min, float edge) {
-
-    auto inner_edge = edge * box_fraction;
-    glm::vec3 inner_min{
-            min.x + (edge - inner_edge)/2.f,
-            min.y + (edge - inner_edge)/2.f,
-            min.z + (edge - inner_edge)/2.f
-    };
-
-    std::random_device rd;
-    std::mt19937 mte(rd());
-    std::uniform_real_distribution<float> dist_x(min.x, inner_min.x + inner_edge);
-    std::uniform_real_distribution<float> dist_y(min.y, inner_min.y + inner_edge);
-    std::uniform_real_distribution<float> dist_z(min.z, inner_min.z + inner_edge);
-
-    float error;
-    for(int i = 0; i < n_test; i++) {
-        glm::vec3 p{dist_x(mte), dist_y(mte), dist_z(mte)};
+float gravity::benchmark(
+        const std::vector<glm::vec3>& locations, const std::vector<tube>& tubes, float R, float G,
+        const std::vector<int>& octree, const std::vector<glm::vec3>& gravity_values,
+        glm::vec3 min, float edge) {
+    float tot_error = 0;
+    for(auto location : locations) {
         int d = 0;
-        auto octree_gravity = get_gravity_from_octree(p, octree, min, edge, gravity_values, &d);
-        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(p, tubes, G, R);
+        auto octree_gravity = get_gravity_from_octree(location, octree, min, edge, gravity_values, &d);
+        auto real_gravity = get_gravity_from_tubes_with_integral_with_gpu(location, tubes, G, R);
         //auto mean_module = glm::length(octree_gravity)/2.f + glm::length(real_gravity) / 2.f;
-        error = error*float(i)*history_weight + glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
-        error /= (float)i*history_weight + 1.f;
+        auto error = glm::length(octree_gravity - real_gravity)/glm::length(real_gravity);
+        if(isnan(error)) continue;
+        tot_error += error;
     }
-    return error;
+    return tot_error / float(locations.size());
 }

@@ -121,7 +121,9 @@ namespace gravity {
         float precision,
         int id,
         const std::vector<int>& octree,
+        int depth,
         int max_depth,
+        int min_depth,
         glm::vec3 box_min_position,
         float edge,
         glm::ivec3 int_box_min_position,
@@ -132,14 +134,17 @@ namespace gravity {
         std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
         float G,
-        float R) {
-
-        /*if(max_depth == 1) {
-            return true;
-        }*/
+        float R,
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
+        ) {
+        std::cout << "depth: " << max_depth - depth << std::endl;
+        if((max_depth - depth) < min_depth) return true;
 
         // box that is being tested (if it should be divided in eight boxes)
         std::array<glm::vec3, 8> box = util::get_box(box_min_position, edge);
+
+        if(util::is_box_inside_mesh(box, vertices, faces)) return false;
 
         std::array<glm::vec3, 8> values{};
         for(int i = 0; i < 8; i++) {
@@ -164,6 +169,7 @@ namespace gravity {
         // add center and half edges to locations / i locations
         if(sd_method == 0) {
             locations_vec.emplace_back(min.x + edge / 2.f, min.y + edge / 2.f, min.z + edge / 2.f);
+            std::cout << locations_vec[0].x << " " << locations_vec[0].y << " " << locations_vec[0].z << std::endl;
             ilocations_vec.emplace_back(int_min.x + int_edge / 2, int_min.y + int_edge / 2, int_min.z + int_edge / 2);
         } else if(sd_method == 1) {
             for(int i = 0; i < 8; i++) locations_vec.emplace_back(locations[i]);
@@ -200,7 +206,9 @@ namespace gravity {
         float precision,
         std::vector<int>& octree,
         int id,
-        int max_res,
+        int depth,
+        int max_depth,
+        int min_depth,
         glm::vec3 min,
         float edge,
         glm::vec<3, int> int_min,
@@ -210,7 +218,9 @@ namespace gravity {
         std::unordered_map<glm::vec<3, int>, int>& cached_values,
         std::unordered_map<glm::vec<3, int>, int>& gravity_values_map,
         const std::vector<tube>& tubes,
-        float G, float R
+        float G, float R,
+        const std::vector<glm::vec3>& vertices,
+        const std::vector<glm::vec<3, unsigned int>>& faces
         );
 
     // returns gravity in p from given gravity octree, min and edge and gravity_values
@@ -269,6 +279,7 @@ namespace gravity {
                 float precision,
                 std::vector<int>& octree,
                 int id,
+                int res,
                 int max_res,
                 glm::vec3 min,
                 float edge,
@@ -276,7 +287,9 @@ namespace gravity {
                 int int_edge,
                 std::unordered_map<glm::ivec3, float>& cached_values,
                 const std::vector<tube>& tubes,
-                float G, float R
+                float G, float R,
+                const std::vector<glm::vec3>& vertices,
+                const std::vector<glm::vec<3, unsigned int>>& faces
                 );
 
         // should divide method for potential::build_octree
@@ -284,7 +297,24 @@ namespace gravity {
         // sd_method == 1 -> check gravity in the centers of the eight innner cubes
         // sd_method == 2 -> both
         // sd_method == 3 -> ad hoc method for potential octree build
-        inline bool should_divide(int sd_method, float alpha, float precision, std::array<float, 8> values, glm::vec3 min, float edge, const std::vector<tube>& tubes, float G, float R) {
+        inline bool should_divide(
+                int sd_method,
+                float alpha,
+                float precision,
+                std::array<float, 8> values,
+                glm::vec3 min, float edge,
+                const std::vector<tube>& tubes, float G, float R,
+                const std::vector<glm::vec3>& vertices,
+                const std::vector<glm::vec<3, unsigned int>>& faces
+                ) {
+
+            // avoid too little boxes for derivative computation
+            if(edge < cbrt(std::numeric_limits<float>::epsilon())) return false;
+
+            // do not divide boxes which are inside mesh, since gravity is not going to be
+            // computed inside mesh
+            if(util::is_box_inside_mesh(util::get_box(min, edge), vertices, faces)) return false;
+
             if(sd_method == 3) {
                 auto x_values = util::get_x_derivative_from_cube(values);
                 for (int i = 0; i < 4; i++) {
@@ -321,9 +351,12 @@ namespace gravity {
                     for(int i = 0; i < 8; i++) { locations.push_back(locations_8[i]); }
                 }
                 for(auto location : locations) {
-                    if(!util::vectors_are_p_equal(
-                            get_gravity_from_tubes_with_integral_with_gpu(location, tubes, G, R),
-                            util::get_gradient_from_box(location, util::get_box(min, edge), values), precision)
+                    //std::cout << "location: " << location.x << " " << location.y << " " << location.z << std::endl;
+                    auto v1 = get_gravity_from_tubes_with_integral_with_gpu(location, tubes, G, R);
+                    auto v2 = util::get_gradient_from_box(location, util::get_box(min, edge), values, edge);
+                    //std::cout << v1.x << " " << v1.y << " " << v1.z << std::endl;
+                    //std::cout << v2.x << " " << v2.y << " " << v2.z << std::endl;
+                    if(!util::vectors_are_p_equal(v1, v2, precision)
                             ) return true;
                 }
                 return false;
@@ -335,19 +368,16 @@ namespace gravity {
         // depth stores depth at which gravity is computed (depth of box leaf that contains locaiton p)
         glm::vec3 get_gravity_from_octree(glm::vec3 p, const std::vector<int>& octree, glm::vec3 min, float edge, int* depth);
 
-        namespace benchmark {
-            float random_benchmark(
-                    float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
-                    const std::vector<int>& octree, glm::vec3 min, float edge);
-        }
+        float benchmark(
+                const std::vector<glm::vec3>& locations, const std::vector<tube>& tubes, float R, float G,
+                const std::vector<int>& octree, glm::vec3 min, float edge);
     }
 
-    namespace benchmark {
-        float random_benchmark(
-                float history_weight, float box_fraction, int n_test, const std::vector<tube>& tubes, float R, float G,
-                const std::vector<int>& octree, const std::vector<glm::vec3>& gravity_values,
-                glm::vec3 min, float edge);
-    }
+
+    float benchmark(
+            const std::vector<glm::vec3>& locations, const std::vector<tube>& tubes, float R, float G,
+            const std::vector<int>& octree, const std::vector<glm::vec3>& gravity_values,
+            glm::vec3 min, float edge);
 }
 
 
