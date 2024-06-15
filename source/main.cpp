@@ -686,6 +686,7 @@ int main(int argv, char** args) {
             }
             */
             //ImGui::SliderInt("should divide method", &should_divide_method, 0, 3);
+            ImGui::Text("BUILD");
             if(ImGui::Button("build octree")) {
                 Timer t{};
                 octree.clear();
@@ -857,7 +858,9 @@ int main(int argv, char** args) {
                 }
                 std::cout << "volume sfera: " << volume << std::endl;
             }*/
-
+            ImGui::Spacing();
+            if(!octree.empty())
+                ImGui::Text("GRAV. BENCHMARK - results in stdout");
             if(!octree.empty() && ImGui::Button("gravity random benchmark")) {
                 Timer t{};
                 auto e = gravity::benchmark(
@@ -866,16 +869,6 @@ int main(int argv, char** args) {
                         );
                 std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
                 std::cout << "gravity benchmark: " << e * 100 << std::endl;
-            }
-
-            if(!potential_octree.empty() && ImGui::Button("potential random benchmark")) {
-                Timer t{};
-                auto e = gravity::potential::benchmark(
-                    util::random_locations(glm::make_vec3(min), edge, n_test),
-                    tubes, cylinder_R, G, potential_octree, glm::make_vec3(min), edge
-                );
-                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
-                std::cout << "potential benchmark: " << e * 100 << std::endl;
             }
 
             if(!octree.empty() && ImGui::Button("near mesh gravity benchmark")) {
@@ -888,16 +881,6 @@ int main(int argv, char** args) {
                 std::cout << "gravity benchmark: " << e * 100 << std::endl;
             }
 
-            if(!potential_octree.empty() && ImGui::Button("near mesh potential benchmark")) {
-                Timer t{};
-                auto e = gravity::potential::benchmark(
-                        util::near_mesh_locations(msh.get_vertices(), msh.get_faces()),
-                        tubes, cylinder_R, G, potential_octree, glm::make_vec3(min), edge
-                );
-                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
-                std::cout << "potential benchmark: " << e * 100 << std::endl;
-            }
-
             if(!octree.empty() && ImGui::Button("outside mesh gravity benchmark")) {
                 Timer t{};
                 auto e = gravity::benchmark(
@@ -906,6 +889,28 @@ int main(int argv, char** args) {
                 );
                 std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
                 std::cout << "gravity benchmark: " << e * 100 << std::endl;
+            }
+
+            if(!potential_octree.empty())
+                ImGui::Text("POT. BENCHMARK - results in stdout");
+            if(!potential_octree.empty() && ImGui::Button("potential random benchmark")) {
+                Timer t{};
+                auto e = gravity::potential::benchmark(
+                    util::random_locations(glm::make_vec3(min), edge, n_test),
+                    tubes, cylinder_R, G, potential_octree, glm::make_vec3(min), edge
+                );
+                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
+                std::cout << "potential benchmark: " << e * 100 << std::endl;
+            }
+
+            if(!potential_octree.empty() && ImGui::Button("near mesh potential benchmark")) {
+                Timer t{};
+                auto e = gravity::potential::benchmark(
+                        util::near_mesh_locations(msh.get_vertices(), msh.get_faces()),
+                        tubes, cylinder_R, G, potential_octree, glm::make_vec3(min), edge
+                );
+                std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
+                std::cout << "potential benchmark: " << e * 100 << std::endl;
             }
 
             if(!potential_octree.empty() && ImGui::Button("outside mesh potential benchmark")) {
@@ -917,7 +922,8 @@ int main(int argv, char** args) {
                 std::cout << "tempo impiegato per il benchmark con " << n_test << " campioni: " << t.time() << std::endl;
                 std::cout << "potential benchmark: " << e * 100 << std::endl;
             }
-
+            ImGui::Spacing();
+            ImGui::Text("LOG RESULTS FOR CHART ANALYSIS - set up tubes before");
             if(ImGui::Button("gravity octree log data")) {
                 int i = 0;
                 std::string file_name = "./gravity_octree_log_" + std::to_string(i) + ".txt";
@@ -1093,7 +1099,8 @@ int main(int argv, char** args) {
             }
 
             */
-
+            ImGui::Spacing();
+            if(!octree.empty()) ImGui::Text("OCTREE EXPORT AS FILE");
             // WRITE FILE
             // file structure
             // min (3 * float) edge (float) octree_size (32bit int) octree values
@@ -1171,11 +1178,9 @@ int main(int argv, char** args) {
                     gravity::get_gravity_from_octree(glm::make_vec3(p), octree, glm::make_vec3(min), edge, gravity_values, &d);
                 }
             }
-            ImGui::Text("gravity computation time: %d", t.time());
             real_time_performance_octree = t.time();
 
             // GRAVITY COMPUTATION FROM POTENTIAL OCTREE IN REAL TIME
-            Timer t2{};
             int potential_d = 0;
             if(!potential_octree.empty()) {
                 auto p = glm::make_vec3(debug_ball_position);
@@ -1183,7 +1188,6 @@ int main(int argv, char** args) {
                     gravity_from_octree_potential = gravity::potential::get_gravity_from_octree(p, potential_octree, glm::make_vec3(min), edge, &potential_d);
                 }
             }
-            ImGui::Text("potential computation time: %d", t2.time());
 
             ImGui::Spacing(); ImGui::Spacing(); ImGui::Spacing();
 
@@ -1341,7 +1345,6 @@ int main(int argv, char** args) {
 
         glStencilMask(0xFF);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 
         if(!msh.get_vertices().empty()) {
@@ -1422,6 +1425,8 @@ int main(int argv, char** args) {
             glBindVertexArray(octreeVAO);
             glDrawArrays(GL_LINES, 0, potential_octree_rendering.size());
         }
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // SWAP WINDOWS
         SDL_GL_SwapWindow(window);
