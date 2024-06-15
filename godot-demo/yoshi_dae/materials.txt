@@ -1,0 +1,102 @@
+Rock_v
+======
+  Textures:
+    - GlaSphereRefLight2
+        Offset: -0.0048828125, 0
+        Scale: 0.30000001192092896, 0.30000001192092896
+    - Rock_006_C
+
+  Ambient Colors:
+    - 100, 100, 100, 195
+
+  Constant Colors:
+    - 97, 97, 97, 255
+
+  Material Colors:
+    - 204, 204, 204, 255
+    - 204, 204, 204, 255
+
+  Color Registers:
+    - 101, 68, 64, -17
+    - 8, 8, 8, -153
+
+  Steps:
+    1: RGB = (lerp from (8, 8, 8) to (101, 68, 64) using (vertex RGB)), multiply by 2
+         A = ((tex #1 A) * (vertex A))
+    2: RGB = ((prev. RGB) * (tex #1 RGB)), divide by 2
+         A = (vertex A)
+    3: RGB = (lerp from (prev. RGB) to (vertex RGB) using (tex #1 RGB)), then add (97, 97, 97), subtract 127, multiply by 2
+         A = (vertex A)
+
+
+
+Tree01_v
+========
+  Textures:
+    - wds_002_c
+        Scale: 0.712890625, 0.712890625
+
+  Ambient Colors:
+    - 100, 100, 100, 195
+
+  Material Colors:
+    - 204, 204, 204, 255
+    - 204, 204, 204, 255
+
+  Color Registers:
+    - 161, 161, 161, -33
+    - 1, 2, 0, 255
+
+  Steps:
+    1: RGB = (lerp from (1, 2, 0) to (161, 161, 161) using (vertex RGB)), multiply by 2
+         A = (lerp from (tex #1 A) to 32 using (vertex A)), then add -33
+    2: RGB = ((prev. RGB) * (tex #1 RGB)), then add (prev. A), multiply by 2
+         A = (64 * (vertex A)), then add -33, multiply by 2
+
+
+
+sand02_v
+========
+  Textures:
+    - wood06
+
+  Ambient Colors:
+    - 100, 100, 100, 195
+
+  Material Colors:
+    - 204, 204, 204, 255
+    - 204, 204, 204, 255
+
+  Color Registers:
+    - 141, 141, 141, -65
+    - 0, 0, 0, 255
+
+  Steps:
+    1: RGB = ((141, 141, 141) * (vertex RGB)), multiply by 2
+         A = (lerp from (tex #1 A) to 32 using (vertex A)), then add -65
+    2: RGB = ((prev. RGB) * (tex #1 RGB)), then add (prev. A), multiply by 2
+         A = (64 * (vertex A)), then add -65, multiply by 2
+
+
+
+wood05_v
+========
+  Textures:
+    - wood05
+
+  Ambient Colors:
+    - 100, 100, 100, 195
+
+  Material Colors:
+    - 204, 204, 204, 255
+    - 204, 204, 204, 255
+
+  Color Registers:
+    - 141, 141, 141, -33
+    - 0, 0, 0, 255
+
+  Steps:
+    1: RGB = ((141, 141, 141) * (vertex RGB)), multiply by 2
+         A = (lerp from (tex #1 A) to 32 using (vertex A)), then add -33
+    2: RGB = ((prev. RGB) * (tex #1 RGB)), then add (prev. A), multiply by 2
+         A = (64 * (vertex A)), then add -33, multiply by 2

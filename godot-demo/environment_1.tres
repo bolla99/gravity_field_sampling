@@ -1,0 +1,26 @@
+[gd_resource type="Environment" load_steps=3 format=3 uid="uid://bc8jns0w1n3td"]
+
+[sub_resource type="PhysicalSkyMaterial" id="PhysicalSkyMaterial_3lblj"]
+rayleigh_coefficient = 0.2
+energy_multiplier = 12.64
+
+[sub_resource type="Sky" id="Sky_7r4dx"]
+sky_material = SubResource("PhysicalSkyMaterial_3lblj")
+
+[resource]
+background_mode = 1
+background_color = Color(0.0392157, 0.0352941, 0.137255, 1)
+background_energy_multiplier = 0.74
+sky = SubResource("Sky_7r4dx")
+ambient_light_source = 2
+ambient_light_color = Color(0.647059, 0.580392, 0.592157, 1)
+ambient_light_energy = 0.63
+tonemap_mode = 2
+ssao_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.278431, 0.231373, 0.607843, 1)
+fog_light_energy = 0.5
+fog_density = 0.02
+fog_sky_affect = 0.1
+adjustment_enabled = true
+adjustment_saturation = 0.6

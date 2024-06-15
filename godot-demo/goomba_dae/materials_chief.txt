@@ -1,0 +1,50 @@
+KuriboEnv_Mat_v
+===============
+  Textures:
+    - Kuribo
+    - Hilight
+        Offset: -0.0390625, -0.0390625
+        Scale: 1.11328125, 1.11328125
+    - noise
+        Scale: 5.9521484375, 5.9521484375
+
+  Ambient Colors:
+    - 128, 128, 128, 128
+
+  Color Registers:
+    - 0, 0, 0, -85
+    - 900, 890, 850, 255
+
+
+
+KuriboEye_Mat_v
+===============
+  Textures:
+    - KuriboEye.0
+    - Hilight
+        Offset: -0.0390625, -0.0390625
+        Scale: 1.11328125, 1.11328125
+
+  Ambient Colors:
+    - 128, 128, 128, 128
+
+  Color Registers:
+    - 0, 0, 0, -81
+    - 946, 950, 898, 255
+
+
+
+Kuribo_Mat_v
+============
+  Textures:
+    - Kuribo
+    - Hilight
+        Offset: 0.0390625, 0.0390625
+        Scale: 1.3232421875, 0.166015625
+
+  Ambient Colors:
+    - 128, 128, 128, 128
+
+  Color Registers:
+    - -5, -5, -5, -69
+    - 1023, 1023, 1023, 255

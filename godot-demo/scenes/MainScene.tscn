@@ -1,0 +1,386 @@
+[gd_scene load_steps=13 format=3 uid="uid://o7wwshncytj7"]
+
+[ext_resource type="Script" path="res://scripts/main_scene.gd" id="1_hpcyb"]
+[ext_resource type="Environment" uid="uid://bc8jns0w1n3td" path="res://environment_1.tres" id="2_eecjo"]
+[ext_resource type="Script" path="res://scripts/trackball.gd" id="3_u1m31"]
+[ext_resource type="ArrayMesh" uid="uid://c0nqi3bhyfi82" path="res://meshes/cube.obj" id="4_cmoff"]
+[ext_resource type="CompressedTexture3D" uid="uid://cfpsk5ag23bsj" path="res://other_data/cube_particle_collider.exr" id="5_fmyqa"]
+[ext_resource type="Script" path="res://scripts/fields.gd" id="9_6wnyu"]
+[ext_resource type="PackedScene" uid="uid://bnqo6hxfo6kwf" path="res://scenes/Ball.tscn" id="9_o88mk"]
+[ext_resource type="PackedScene" uid="uid://coejlvy18e4rj" path="res://scenes/Field.tscn" id="9_ywm7p"]
+[ext_resource type="PackedScene" uid="uid://c4dy4xqbcjrqg" path="res://scenes/Satellite.tscn" id="13_k818r"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_s53ql"]
+friction = 0.0
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_mj6oc"]
+data = PackedVector3Array(1, 1, 1, -1, 1, -1, 1, 1, -1, -1, -1, 1, 1, 1, 1, 1, -1, 1, -1, -1, -1, -1, 1, 1, -1, -1, 1, -1, -1, 1, 1, -1, -1, -1, -1, -1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, -1, 1, 1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, 1, -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1)
+
+[sub_resource type="Theme" id="Theme_ve8yi"]
+BoxContainer/constants/separation = 4
+VBoxContainer/constants/separation = 7
+
+[node name="MainScene" type="Node3D"]
+script = ExtResource("1_hpcyb")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, -3.48787e-16, 3.48787e-16, 3.48787e-16, 1, -3.48787e-16, -3.48787e-16, 3.48787e-16, 1, 0, 0, 3.77059)
+rotation_order = 0
+environment = ExtResource("2_eecjo")
+fov = 30.0
+script = ExtResource("3_u1m31")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_eecjo")
+
+[node name="DirectionalLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.547669, 0.456164, -0.701408, 0.0059542, 0.836162, 0.548451, 0.836674, -0.304546, 0.455224, -6.14245, 4.068, 2.90937)
+light_color = Color(0.984314, 1, 0.988235, 1)
+light_energy = 0.5
+light_bake_mode = 1
+shadow_enabled = true
+shadow_blur = 2.292
+directional_shadow_split_1 = 0.122
+
+[node name="Planet" type="StaticBody3D" parent="."]
+disable_mode = 1
+collision_mask = 0
+physics_material_override = SubResource("PhysicsMaterial_s53ql")
+
+[node name="Mesh" type="MeshInstance3D" parent="Planet"]
+visible = false
+mesh = ExtResource("4_cmoff")
+skeleton = NodePath("../..")
+
+[node name="Collider" type="CollisionShape3D" parent="Planet"]
+shape = SubResource("ConcavePolygonShape3D_mj6oc")
+
+[node name="GPUParticlesCollisionSDF3D" type="GPUParticlesCollisionSDF3D" parent="Planet"]
+size = Vector3(5, 5, 5)
+resolution = 3
+thickness = 2.0
+texture = ExtResource("5_fmyqa")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Label4" type="Label" parent="UI"]
+offset_left = 1267.0
+offset_top = 724.0
+offset_right = 1416.0
+offset_bottom = 747.0
+text = "current gravity:
+"
+
+[node name="GravityLabel" type="Label" parent="UI"]
+offset_left = 1267.0
+offset_top = 751.0
+offset_right = 1416.0
+offset_bottom = 774.0
+
+[node name="VBoxContainerLeft" type="VBoxContainer" parent="UI"]
+offset_left = 33.0
+offset_top = 33.0
+offset_right = 189.0
+offset_bottom = 643.0
+theme = SubResource("Theme_ve8yi")
+
+[node name="ChooseMeshButton" type="Button" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "open mesh
+"
+
+[node name="ChooseOctreeButton" type="Button" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "open octree
+"
+
+[node name="OctreeSelection" type="OptionButton" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+
+[node name="HSeparator_1" type="HSeparator" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+
+[node name="GravityCheckbox" type="CheckBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "gravity on"
+
+[node name="HSeparator_2" type="HSeparator" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "camera distance"
+
+[node name="CamDistance" type="HSlider" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+max_value = 30.0
+step = 2.08165e-12
+value = 15.0
+
+[node name="HSeparator_3" type="HSeparator" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+
+[node name="ForceLabel" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "gravity force"
+
+[node name="GravityForce" type="HSlider" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+max_value = 5.0
+step = 0.1
+value = 1.0
+
+[node name="HSeparator_4" type="HSeparator" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "ball position
+"
+
+[node name="BallPosX" type="SpinBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+min_value = -10.0
+max_value = 10.0
+step = 0.01
+
+[node name="BallPosY" type="SpinBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+min_value = -10.0
+max_value = 10.0
+step = 0.01
+
+[node name="BallPosZ" type="SpinBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+min_value = -10.0
+max_value = 10.0
+step = 0.01
+value = 2.0
+
+[node name="OctreeBrowser" type="FileDialog" parent="UI/VBoxContainerLeft"]
+title = "Open a File"
+size = Vector2i(400, 400)
+ok_button_text = "Open"
+file_mode = 0
+filters = PackedStringArray("*.pot", "*.grav")
+
+[node name="MeshBrowser" type="FileDialog" parent="UI/VBoxContainerLeft"]
+title = "Open a File"
+size = Vector2i(400, 400)
+ok_button_text = "Open"
+file_mode = 0
+filters = PackedStringArray("*.obj")
+
+[node name="ParticlesFieldLabel" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "particles field"
+
+[node name="StartParticlesButton" type="Button" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "start particles"
+
+[node name="PauseParticlesButton" type="Button" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "pause particles
+"
+
+[node name="StopParticlesButton" type="Button" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "stop particles
+"
+
+[node name="Label2" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "particles trail duration
+"
+
+[node name="TrailDuration" type="SpinBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+max_value = 10.0
+step = 0.1
+value = 1.0
+
+[node name="Label4" type="Label" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+text = "wait time
+"
+
+[node name="WaitTime" type="SpinBox" parent="UI/VBoxContainerLeft"]
+layout_mode = 2
+max_value = 200.0
+step = 0.1
+value = 10.0
+
+[node name="VBoxContainerRight" type="VBoxContainer" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -172.0
+offset_top = 33.0
+offset_right = -23.0
+offset_bottom = 579.0
+grow_horizontal = 0
+
+[node name="Label" type="Label" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "FPS: "
+
+[node name="HSeparator" type="HSeparator" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+
+[node name="Label1" type="Label" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "ball velocity
+"
+
+[node name="BallVelocityX" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+value = 4.5
+
+[node name="BallVelocityY" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+
+[node name="BallVelocityZ" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+
+[node name="HSeparator2" type="HSeparator" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "spawn box edge"
+
+[node name="SpawnEdge" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+max_value = 10.0
+step = 0.1
+value = 4.0
+
+[node name="Label3" type="Label" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "p per edge"
+
+[node name="PPerEdge" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+max_value = 50.0
+value = 10.0
+
+[node name="HSeparator3" type="HSeparator" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+
+[node name="AddBallButton" type="Button" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "Add Ball"
+
+[node name="AddPosX" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+
+[node name="AddPosY" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+
+[node name="AddPosZ" type="SpinBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+min_value = -20.0
+max_value = 20.0
+step = 0.001
+
+[node name="OpenBallsListButton" type="Button" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "open balls list"
+
+[node name="BallsListWindow" type="Window" parent="UI/VBoxContainerRight"]
+position = Vector2i(30, 50)
+size = Vector2i(300, 300)
+visible = false
+
+[node name="BallsList" type="ItemList" parent="UI/VBoxContainerRight/BallsListWindow"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RemoveGoombasButton" type="Button" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "remove all goombas"
+
+[node name="RemoveBallsButton" type="Button" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "remove all balls"
+
+[node name="GoombasGravityFlat" type="CheckBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "goombas gravity flat"
+
+[node name="BallsTrace" type="CheckBox" parent="UI/VBoxContainerRight"]
+layout_mode = 2
+text = "ball trace"
+
+[node name="Fields" type="Node" parent="."]
+script = ExtResource("9_6wnyu")
+
+[node name="FieldTimer" type="Timer" parent="Fields"]
+
+[node name="FieldsList" type="Node" parent="Fields"]
+
+[node name="Field6" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field2" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field3" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field4" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field5" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field7" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field8" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field9" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field10" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field11" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field12" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field13" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field14" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field15" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field16" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field17" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field18" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field19" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Field20" parent="Fields/FieldsList" instance=ExtResource("9_ywm7p")]
+
+[node name="Ball" parent="." instance=ExtResource("9_o88mk")]
+linear_damp_mode = 1
+linear_damp = 0.0
+
+[node name="Satellite" parent="." instance=ExtResource("13_k818r")]
+visible = false

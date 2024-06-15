@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dw6osvao4u03d"
+path="res://.godot/imported/yoshi.obj-4c6622bfdb4b72d841255d76d7f787ee.mesh"
+
+[deps]
+
+files=["res://.godot/imported/yoshi.obj-4c6622bfdb4b72d841255d76d7f787ee.mesh"]
+
+source_file="res://meshes/yoshi.obj"
+dest_files=["res://.godot/imported/yoshi.obj-4c6622bfdb4b72d841255d76d7f787ee.mesh", "res://.godot/imported/yoshi.obj-4c6622bfdb4b72d841255d76d7f787ee.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

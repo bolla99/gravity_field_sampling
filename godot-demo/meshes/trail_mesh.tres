@@ -1,0 +1,17 @@
+[gd_resource type="TubeTrailMesh" load_steps=3 format=3 uid="uid://cts2kces6hh13"]
+
+[ext_resource type="Material" uid="uid://bpaqhlnvtr64h" path="res://materials/mat_trails_shader.tres" id="1_wok3d"]
+
+[sub_resource type="Curve" id="Curve_ru3yo"]
+bake_resolution = 50
+_data = [Vector2(0, 0), 0.0, 16.6055, 0, 0, Vector2(0.0514469, 0.493692), 6.01967, 6.01967, 0, 0, Vector2(0.189711, 0.885902), 0.572425, 0.572425, 0, 0, Vector2(0.501608, 0.953648), 0.0, 0.0, 0, 0, Vector2(0.797428, 0.885902), -0.609355, -0.609355, 0, 0, Vector2(0.942122, 0.504388), -5.15904, -5.15904, 0, 0, Vector2(1, 0), -6.0545, 0.0, 0, 0]
+point_count = 7
+
+[resource]
+material = ExtResource("1_wok3d")
+uv2_padding = 7.3
+radius = 0.005
+sections = 3
+section_length = 0.005
+section_rings = 1
+curve = SubResource("Curve_ru3yo")

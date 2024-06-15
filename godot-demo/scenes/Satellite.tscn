@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3 uid="uid://c4dy4xqbcjrqg"]
+
+[ext_resource type="PhysicsMaterial" uid="uid://c4qempdmhocjg" path="res://materials/physics/ship_physics_mat.tres" id="1_s7123"]
+[ext_resource type="Script" path="res://scripts/ball.gd" id="2_oqtb5"]
+[ext_resource type="PackedScene" uid="uid://boomfxymsxe74" path="res://satellite/scene.gltf" id="3_ux8tg"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_f1aql"]
+radius = 0.05
+
+[node name="Ball" type="RigidBody3D" groups=["gravitable"]]
+transform = Transform3D(0.988853, 0, 0.148897, 0, 1, 0, -0.148897, 0, 0.988853, 2.08165e-12, 2.08165e-12, 2)
+disable_mode = 2
+collision_mask = 2
+physics_material_override = ExtResource("1_s7123")
+gravity_scale = 1.66533e-16
+inertia = Vector3(100, 100, 100)
+can_sleep = false
+freeze_mode = 1
+continuous_cd = true
+max_contacts_reported = 100
+contact_monitor = true
+script = ExtResource("2_oqtb5")
+
+[node name="Collider" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_f1aql")
+
+[node name="Sketchfab_Scene" parent="." instance=ExtResource("3_ux8tg")]
+transform = Transform3D(0.03, 0, -1.7952e-09, 0, 0.03, 0, 1.74843e-09, 0, 0.03, -0.0345882, 2.08165e-12, 0.0497539)

@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bewmgvgi1k1gn"
+path="res://.godot/imported/smooth_sphere.obj-bd5cc54b870ba69f8fb58adae8177971.mesh"
+
+[deps]
+
+files=["res://.godot/imported/smooth_sphere.obj-bd5cc54b870ba69f8fb58adae8177971.mesh"]
+
+source_file="res://meshes/smooth_sphere.obj"
+dest_files=["res://.godot/imported/smooth_sphere.obj-bd5cc54b870ba69f8fb58adae8177971.mesh", "res://.godot/imported/smooth_sphere.obj-bd5cc54b870ba69f8fb58adae8177971.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

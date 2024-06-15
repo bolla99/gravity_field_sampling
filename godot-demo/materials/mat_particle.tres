@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://cd3k722ww5tks"]
+
+[ext_resource type="Shader" path="res://shaders/particles.gdshader" id="1_tne60"]
+
+[resource]
+shader = ExtResource("1_tne60")
+shader_parameter/octree = null
+shader_parameter/octree_size = 0
+shader_parameter/gravity_values = null
+shader_parameter/gravity_values_size = null
+shader_parameter/_min = null
+shader_parameter/edge = null
+shader_parameter/positions = null
+shader_parameter/aabb_min = null
+shader_parameter/aabb_size = null
