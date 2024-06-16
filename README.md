@@ -19,8 +19,7 @@ above-mentioned ones; *util* provides general purpose
 funcionality, while *GPUComputing* provides GPU accelerated 
 computations, which are implemented with *Metal*, which means 
 the whole project can run only on *macOS*.
-*util* and *GPUComputing* provide services for the  
-*gravity* namespace, which exposes the interface for the core functionality.
+*util* and *GPUComputing* provide services for the *gravity* namespace, which exposes the interface for the core functionality.
 Documentation can be found in the corresponding header file
 (gravity.hpp).
 The rest of the project consists of a mesh abstraction, a 
