@@ -1268,7 +1268,6 @@ int main(int argv, char** args) {
 
         ImGui::SliderFloat("debug ball scale", &debug_ball_scale, 0.1f, 1.f);
         ImGui::InputFloat3("debug ball position", debug_ball_position);
-        ImGui::InputFloat3("debug_ball_position", debug_ball_position);
         ImGui::InputFloat3("initial velocity", ball_initial_velocity);
         if(ImGui::Button("reset ball velocity")) debug_ball_velocity = {0.f, 0.f, 0.f};
         ImGui::Text("ball velocity: %f %f %f",
